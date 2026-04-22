@@ -148,6 +148,10 @@
         .work-nav-btn:hover { color: var(--ink); }
         .work-nav .work-nav-next { text-align: right; }
 
+        .work-image-panel img {
+            cursor: zoom-in;
+        }
+
         /* ── Not found ─────────────────────────────────────────────── */
         .work-not-found {
             display: flex;
@@ -191,6 +195,10 @@
 
     <div class="artwork-topbar">
         <a class="work-back-btn" href="works.html">← Works</a>
+    </div>
+
+    <div id="lightbox">
+        <img id="lightbox-img" src="" alt="">
     </div>
 
     <div id="root"></div>
@@ -262,9 +270,37 @@
                     const newAw  = ARTWORKS[newIdx];
                     history.pushState(null, '', `work.html?id=${newAw.id}`);
                     render(newIdx);
+                    attachLightbox();
                     window.scrollTo(0, 0);
                 });
             });
+        }
+
+        // ── Lightbox ─────────────────────────────────────────────────
+        const lightbox    = document.getElementById('lightbox');
+        const lightboxImg = document.getElementById('lightbox-img');
+
+        function openLightbox(src, alt) {
+            lightboxImg.src = src;
+            lightboxImg.alt = alt;
+            lightbox.classList.add('visible');
+        }
+
+        function closeLightbox() {
+            lightbox.classList.remove('visible');
+        }
+
+        lightbox.addEventListener('click', e => {
+            if (e.target !== lightboxImg) closeLightbox();
+        });
+
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape' && lightbox.classList.contains('visible')) closeLightbox();
+        });
+
+        function attachLightbox() {
+            const img = root.querySelector('.work-image-panel img');
+            if (img) img.addEventListener('click', () => openLightbox(img.src, img.alt));
         }
 
         // Handle browser back/forward
@@ -272,12 +308,14 @@
             const id  = new URLSearchParams(window.location.search).get('id');
             const idx = ARTWORKS.findIndex(a => a.id === id);
             render(idx);
+            attachLightbox();
             window.scrollTo(0, 0);
         });
 
         const id  = new URLSearchParams(window.location.search).get('id');
         const idx = ARTWORKS.findIndex(a => a.id === id);
         render(idx);
+        attachLightbox();
     </script>
 
 </body>

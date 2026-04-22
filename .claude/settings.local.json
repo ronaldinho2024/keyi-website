@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s \"https://unveil.fr/\")",
+      "Bash(curl -s \"https://unveil.fr/_app/immutable/entry/start.C0VPmnrY.js\")",
+      "Bash(curl -s \"https://unveil.fr/_app/immutable/entry/app.C78c4QCa.js\")",
+      "Bash(curl -s \"https://unveil.fr/_app/immutable/chunks/DJQMH-ov.js\")",
+      "Bash(grep -o '.\\\\{0,200\\\\}perspective.\\\\{0,200\\\\}')",
+      "Bash(grep -o '.\\\\{0,300\\\\}rotateX.\\\\{0,300\\\\}')",
+      "Bash(curl -s \"https://unveil.fr/_app/immutable/nodes/0.CvEaJ_33.js\")",
+      "Bash(grep -o '.\\\\{0,400\\\\}rotateX.\\\\{0,400\\\\}')",
+      "Bash(curl -s \"https://unveil.fr/_app/immutable/chunks/CZDWTye-.js\")",
+      "Bash(git filter-repo:*)",
+      "Bash(git filter-branch:*)",
+      "Bash(ls -la *.pptx)",
+      "Bash(ls *.pptx)",
+      "Bash(ls assets/images/*.jpg)",
+      "Bash(du -sh assets/images/*.jpg)"
+    ]
+  }
+}

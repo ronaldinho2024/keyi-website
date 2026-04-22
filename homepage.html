@@ -471,6 +471,26 @@
     btnPrev.addEventListener('click', () => navigateDetail(-1));
     btnNext.addEventListener('click', () => navigateDetail(1));
 
+    /* ── Lightbox ───────────────────────────────────────────────── */
+    const lightbox    = document.getElementById('lightbox');
+    const lightboxImg = document.getElementById('lightbox-img');
+
+    detailImg.addEventListener('click', () => {
+        lightboxImg.src = detailImg.src;
+        lightboxImg.alt = detailImg.alt;
+        lightbox.classList.add('visible');
+    });
+
+    lightbox.addEventListener('click', e => {
+        if (e.target !== lightboxImg) lightbox.classList.remove('visible');
+    });
+
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && lightbox.classList.contains('visible')) {
+            lightbox.classList.remove('visible');
+        }
+    });
+
     btnClose.addEventListener('click', () => {
         // Hide overlay
         overlay.classList.remove('visible');
