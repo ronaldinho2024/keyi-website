@@ -5,19 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Fan Keyi</title>
     <link rel="stylesheet" href="css/style.css">
-    <style>
-        @media (max-width: 800px) {
-            #detail-overlay { flex-direction: column; overflow-y: auto; }
-            #detail-image-wrap { width: 100%; padding: 80px 32px 32px; }
-            #detail-img { max-height: 55vw; }
-            #detail-text { width: 100%; padding: 32px 32px 64px; }
-        }
-    </style>
 </head>
 <body class="home" style="overflow:hidden;">
 
     <nav class="site-nav">
         <a class="nav-brand" href="homepage.html">Fan Keyi</a>
+        <button class="nav-hamburger" aria-label="Open menu" aria-expanded="false">
+            <span></span><span></span><span></span>
+        </button>
         <ul class="nav-links">
             <li><a href="works.html">Works</a></li>
             <li><a href="exhibitions.html">Exhibitions</a></li>
@@ -689,6 +684,7 @@
     updatePanes(0);
     animate(performance.now());
     </script>
+    <script src="js/main.js"></script>
 
 </body>
 </html>

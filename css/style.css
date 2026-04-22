@@ -642,3 +642,172 @@ body.contact {
         padding: 110px 24px 80px;
     }
 }
+
+/* ── Hamburger button ────────────────────────────────────────────── */
+.nav-hamburger {
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    gap: 5px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 8px;
+    margin: -8px;
+    position: relative;
+    z-index: 101;
+}
+
+.nav-hamburger span {
+    display: block;
+    width: 22px;
+    height: 1px;
+    background: var(--ink);
+    transition: transform 0.35s ease, opacity 0.35s ease;
+    transform-origin: center;
+}
+
+body.nav-open .nav-hamburger span:nth-child(1) {
+    transform: translateY(6px) rotate(45deg);
+}
+body.nav-open .nav-hamburger span:nth-child(2) {
+    opacity: 0;
+    transform: scaleX(0);
+}
+body.nav-open .nav-hamburger span:nth-child(3) {
+    transform: translateY(-6px) rotate(-45deg);
+}
+
+/* ── Works page ──────────────────────────────────────────────────── */
+body.works-page {
+    background: var(--bg);
+    min-height: 100vh;
+}
+
+.works-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 2px;
+    padding-top: 80px;
+}
+
+.works-item {
+    display: block;
+    position: relative;
+    overflow: hidden;
+    background: var(--cream);
+    aspect-ratio: 1;
+}
+
+.works-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: transform 0.5s ease, opacity 0.3s ease;
+}
+
+.works-item:hover img {
+    transform: scale(1.03);
+    opacity: 0.85;
+}
+
+.works-item-caption {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    padding: 16px 20px 14px;
+    background: linear-gradient(transparent, rgba(30, 42, 12, 0.55));
+    opacity: 0;
+    transform: translateY(4px);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.works-item:hover .works-item-caption {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.works-item-title {
+    font-family: 'EB Garamond', Georgia, serif;
+    font-size: 13px;
+    letter-spacing: 0.12em;
+    color: #f5f0e8;
+    display: block;
+}
+
+.works-item-year {
+    font-family: 'EB Garamond', Georgia, serif;
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    color: rgba(245, 240, 232, 0.7);
+    display: block;
+    margin-top: 2px;
+}
+
+/* ── Detail overlay: mobile ──────────────────────────────────────── */
+@media (max-width: 800px) {
+    #detail-overlay { flex-direction: column; overflow-y: auto; }
+    #detail-image-wrap { width: 100%; padding: 80px 32px 32px; }
+    #detail-img { max-height: 55vw; }
+    #detail-text { width: 100%; padding: 32px 32px 64px; }
+
+    #detail-prev,
+    #detail-next { padding: 20px; }
+}
+
+/* ── Works grid: tablet ──────────────────────────────────────────── */
+@media (max-width: 900px) {
+    .works-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ── Mobile nav overlay ──────────────────────────────────────────── */
+@media (max-width: 680px) {
+    .site-nav { padding: 20px 28px; }
+
+    .nav-hamburger { display: flex; }
+
+    .nav-links {
+        position: fixed;
+        inset: 0;
+        z-index: 99;
+        background: var(--bg);
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 48px;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.4s ease;
+    }
+
+    body.nav-open .nav-links {
+        opacity: 1;
+        pointer-events: all;
+    }
+
+    .nav-links a { font-size: 13px; }
+
+    .works-item-caption {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ── Works grid: single column ───────────────────────────────────── */
+@media (max-width: 500px) {
+    .works-grid { grid-template-columns: 1fr; }
+}
+
+/* ── Small phone: 480px ──────────────────────────────────────────── */
+@media (max-width: 480px) {
+    .site-nav { padding: 16px 20px; }
+
+    .exh-container { padding: 90px 20px 60px; }
+    .contact-container { padding: 90px 20px 60px; }
+
+    #detail-image-wrap { padding: 64px 20px 20px; }
+    #detail-text { padding: 20px 20px 48px; }
+
+    #detail-title-en { font-size: 22px; }
+    #detail-title-zh { font-size: 16px; }
+}

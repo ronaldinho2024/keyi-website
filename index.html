@@ -164,6 +164,16 @@
             mouseNY = (e.clientY / window.innerHeight - 0.5) * 2;
         });
 
+        window.addEventListener('touchmove', e => {
+            mode = 'mouse';
+            mouseNX = (e.touches[0].clientX / window.innerWidth  - 0.5) * 2;
+            mouseNY = (e.touches[0].clientY / window.innerHeight - 0.5) * 2;
+        }, { passive: true });
+
+        window.addEventListener('touchend', () => {
+            mode = 'idle';
+        }, { passive: true });
+
         (function tick() {
             const t = Date.now();
             layers.forEach(l => {
