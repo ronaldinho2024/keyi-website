@@ -112,17 +112,14 @@
 
     const scene = new THREE.Scene();
 
-    const FRUSTUM_H = 2.0;
-    const FRUSTUM_W = FRUSTUM_H * (window.innerWidth / window.innerHeight);
+    let FRUSTUM_H = 2.0;
+    let FRUSTUM_W = FRUSTUM_H * (window.innerWidth / window.innerHeight);
     const camera = new THREE.OrthographicCamera(
         -FRUSTUM_W, FRUSTUM_W, FRUSTUM_H, -FRUSTUM_H, -50, 100
     );
     camera.position.set(0, 0, 5);
-    camera.lookAt(0, 0.3, 0);
 
     const group = new THREE.Group();
-    group.rotation.x = THREE.MathUtils.degToRad(-12);
-    group.rotation.y = THREE.MathUtils.degToRad(30);
     scene.add(group);
 
     /* ── Panes ──────────────────────────────────────────────────────── */
@@ -245,13 +242,52 @@
     }
 
     /* ── Group translation ──────────────────────────────────────────── */
-    const GRP_Y0 = 2.8;
-    const GRP_Y1 = GRP_Y0;
-    const _pExit       = (GRP_Y0 + FRUSTUM_H) / 12.698;
-    const _avgAspect   = ARTWORKS.reduce((s, a) => s + a.aspect, 0) / N;
-    const _halfWidthPx = (PANE_H * _avgAspect / 2) * Math.cos(THREE.MathUtils.degToRad(40));
-    const GRP_X0 = -FRUSTUM_W + _halfWidthPx + 17.685 * _pExit;
-    const GRP_X1 = GRP_X0;
+    // Desktop layout — constants pre-computed at FRUSTUM_H = 2.0
+    const _DESK_FRUSTUM_H = 2.0;
+    const _DESK_GRP_Y     = 2.8;
+    const _pExit          = (_DESK_GRP_Y + _DESK_FRUSTUM_H) / 12.698;
+    const _avgAspect      = ARTWORKS.reduce((s, a) => s + a.aspect, 0) / N;
+    const _halfWidthPx    = (PANE_H * _avgAspect / 2) * Math.cos(THREE.MathUtils.degToRad(40));
+
+    // Mutable group position — set by updateLayout() each frame-zero and on resize
+    let grpX = 0;
+    let grpY = 0;
+
+    function isPortrait() { return window.innerWidth < window.innerHeight; }
+
+    function updateLayout() {
+        const portrait = isPortrait();
+
+        // Zoom out the frustum on mobile so cards aren't cropped
+        FRUSTUM_H = portrait ? 3.2 : _DESK_FRUSTUM_H;
+        FRUSTUM_W = FRUSTUM_H * (window.innerWidth / window.innerHeight);
+
+        camera.top    =  FRUSTUM_H;
+        camera.bottom = -FRUSTUM_H;
+        camera.left   = -FRUSTUM_W;
+        camera.right  =  FRUSTUM_W;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+
+        if (portrait) {
+            // Mobile: shallower tilt, scale cards down, position cascade across portrait viewport
+            group.rotation.x = THREE.MathUtils.degToRad(-10);
+            group.rotation.y = THREE.MathUtils.degToRad(28);
+            group.scale.setScalar(0.62);
+            // Anchor top of cascade near right edge, cards sweep left-and-down
+            grpX = FRUSTUM_W * 1.4;
+            grpY = FRUSTUM_H * 1.1;
+        } else {
+            // Desktop: original layout
+            group.rotation.x = THREE.MathUtils.degToRad(-12);
+            group.rotation.y = THREE.MathUtils.degToRad(30);
+            group.scale.setScalar(1.0);
+            grpX = -FRUSTUM_W + _halfWidthPx + 17.685 * _pExit;
+            grpY = _DESK_GRP_Y;
+        }
+
+        camera.lookAt(0, portrait ? 0 : 0.3, 0);
+    }
 
     /* ── Scroll ─────────────────────────────────────────────────────── */
     const SCROLL_TRACK = 3000;
@@ -271,6 +307,29 @@
     window.addEventListener('wheel', () => {
         document.getElementById('scrollHint').style.opacity = '0';
     }, { once: true });
+
+    /* ── Touch scroll ───────────────────────────────────────────────── */
+    let lastTouchY  = 0;
+    let touchMoved  = false;
+    let touchStartX = 0;
+    let touchStartY = 0;
+
+    window.addEventListener('touchstart', e => {
+        lastTouchY  = e.touches[0].clientY;
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+        touchMoved  = false;
+    }, { passive: true });
+
+    window.addEventListener('touchmove', e => {
+        const dx = e.touches[0].clientX - touchStartX;
+        const dy = lastTouchY - e.touches[0].clientY;
+        lastTouchY = e.touches[0].clientY;
+        if (Math.abs(dx) > 8 || Math.abs(e.touches[0].clientY - touchStartY) > 8) touchMoved = true;
+        if (scrollLocked) return;
+        speed += dy * 0.35;
+        document.getElementById('scrollHint').style.opacity = '0';
+    }, { passive: true });
 
     function lerpWrap(curr, tgt, k) {
         let d = tgt - curr;
@@ -325,6 +384,7 @@
 
     canvas.addEventListener('click', e => {
         if (clickState !== 'idle') return;
+        if (touchMoved) { touchMoved = false; return; }
 
         mouse.x =  (e.clientX / window.innerWidth)  * 2 - 1;
         mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
@@ -514,15 +574,7 @@
     });
 
     /* ── Resize ─────────────────────────────────────────────────────── */
-    window.addEventListener('resize', () => {
-        const w = FRUSTUM_H * (window.innerWidth / window.innerHeight);
-        camera.left   = -w;
-        camera.right  =  w;
-        camera.top    =  FRUSTUM_H;
-        camera.bottom = -FRUSTUM_H;
-        camera.updateProjectionMatrix();
-        renderer.setSize(window.innerWidth, window.innerHeight);
-    });
+    window.addEventListener('resize', updateLayout);
 
     /* ── Render loop ─────────────────────────────────────────────────── */
     function animate(now) {
@@ -624,8 +676,8 @@
                 if (target === 0 && Math.abs(hoverZ[i]) < 0.001) hoverZ[i] = 0;
             }
 
-            group.position.x = lerp(GRP_X0, GRP_X1, tCurrent);
-            group.position.y = lerp(GRP_Y0, GRP_Y1, tCurrent);
+            group.position.x = grpX;
+            group.position.y = grpY;
 
             updatePanes(tCurrent);
         }
@@ -633,6 +685,7 @@
         renderer.render(scene, camera);
     }
 
+    updateLayout();
     updatePanes(0);
     animate(performance.now());
     </script>
