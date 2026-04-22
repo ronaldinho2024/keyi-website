@@ -253,8 +253,9 @@
     function updateLayout() {
         const portrait = isPortrait();
 
-        // Zoom out the frustum on mobile so cards aren't cropped
-        FRUSTUM_H = portrait ? 3.2 : _DESK_FRUSTUM_H;
+        // Frustum height stays the same on all viewports —
+        // FRUSTUM_W just narrows naturally on portrait phones.
+        FRUSTUM_H = _DESK_FRUSTUM_H;
         FRUSTUM_W = FRUSTUM_H * (window.innerWidth / window.innerHeight);
 
         camera.top    =  FRUSTUM_H;
@@ -265,15 +266,19 @@
         renderer.setSize(window.innerWidth, window.innerHeight);
 
         if (portrait) {
-            // Mobile: shallower tilt, scale cards down, position cascade across portrait viewport
+            // Mobile portrait:
+            // - steeper y-rotation (38°) narrows the apparent card width so landscape
+            //   artworks don't overflow the narrow portrait viewport
+            // - scale 0.80 keeps cards at ~38% of screen height (readable, like the reference)
+            // - grpX anchors the top of the cascade just inside the right edge;
+            //   cards sweep left-and-down as p increases (kx=-15, ky=-14)
             group.rotation.x = THREE.MathUtils.degToRad(-10);
-            group.rotation.y = THREE.MathUtils.degToRad(28);
-            group.scale.setScalar(0.62);
-            // Anchor top of cascade near right edge, cards sweep left-and-down
-            grpX = FRUSTUM_W * 1.4;
-            grpY = FRUSTUM_H * 1.1;
+            group.rotation.y = THREE.MathUtils.degToRad(38);
+            group.scale.setScalar(0.80);
+            grpX = FRUSTUM_W + 0.28;   // ~1.20 on a 390-wide phone
+            grpY = 2.9;
         } else {
-            // Desktop: original layout
+            // Desktop: original layout unchanged
             group.rotation.x = THREE.MathUtils.degToRad(-12);
             group.rotation.y = THREE.MathUtils.degToRad(30);
             group.scale.setScalar(1.0);
