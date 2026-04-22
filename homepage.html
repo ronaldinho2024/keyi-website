@@ -175,7 +175,7 @@
 
     /* ── Stack layout ───────────────────────────────────────────────── */
     const x0 =  0.0,  y0 =  0.0,  z0 =  0.0;
-    const kx = -15.0,  ky = -14.0,  kz = -8.0;
+    let   kx = -15.0,  ky = -14.0,  kz = -8.0;   // overridden on mobile by updateLayout()
 
     const _stackDir = new THREE.Vector3(kx, ky, kz).normalize();
     const hoverDir  = new THREE.Vector3(0, 0, 1)
@@ -266,19 +266,26 @@
         renderer.setSize(window.innerWidth, window.innerHeight);
 
         if (portrait) {
-            // Mobile portrait:
-            // - steeper y-rotation (38°) narrows the apparent card width so landscape
-            //   artworks don't overflow the narrow portrait viewport
-            // - scale 0.80 keeps cards at ~38% of screen height (readable, like the reference)
-            // - grpX anchors the top of the cascade just inside the right edge;
-            //   cards sweep left-and-down as p increases (kx=-15, ky=-14)
+            // Mobile portrait fix — the core problem:
+            // With kx=-15 and ry=30°, the effective world-space x-sweep is ~-12 per unit p.
+            // Over the visible p-range (~0.33), that is a 4-unit x-sweep — but the portrait
+            // frustum is only 1.85 units wide, so cards race off-screen left immediately.
+            //
+            // Fix: halve kx and kz so the x-sweep matches the viewport width.
+            // Calculated values (rx=-10°, ry=30°, scale=0.80):
+            //   x_world/p ≈ -5.76  →  0.33 × 5.76 ≈ 1.90 ≈ FRUSTUM_W*2  ✓
+            //   y_world/p ≈ -11.98 →  0.33 × 11.98 ≈ 3.95 ≈ FRUSTUM_H*2  ✓
+            //   z_world/p > 0  →  depth ordering preserved  ✓
+            kx = -7.5;  ky = -14.5;  kz = -4.0;
             group.rotation.x = THREE.MathUtils.degToRad(-10);
-            group.rotation.y = THREE.MathUtils.degToRad(38);
+            group.rotation.y = THREE.MathUtils.degToRad(30);
             group.scale.setScalar(0.80);
-            grpX = FRUSTUM_W + 0.28;   // ~1.20 on a 390-wide phone
-            grpY = 2.9;
+            // Top card (p≈0.07) lands at the top-right corner of the viewport
+            grpX = FRUSTUM_W + 0.45;   // ≈ 1.37 on a 390-wide phone
+            grpY = 2.84;
         } else {
             // Desktop: original layout unchanged
+            kx = -15.0;  ky = -14.0;  kz = -8.0;
             group.rotation.x = THREE.MathUtils.degToRad(-12);
             group.rotation.y = THREE.MathUtils.degToRad(30);
             group.scale.setScalar(1.0);
