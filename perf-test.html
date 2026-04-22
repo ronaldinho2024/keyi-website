@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Performance Test — Fan Keyi</title>
+    <style>
+        body {
+            font-family: monospace;
+            background: #EAE2D0;
+            color: #3D4E22;
+            padding: 40px;
+            max-width: 960px;
+            margin: 0 auto;
+        }
+        h1 { font-size: 18px; margin-bottom: 8px; }
+        p.sub { font-size: 12px; color: #8A9A5A; margin-bottom: 28px; }
+        button {
+            background: #3D4E22;
+            color: #F5F0E8;
+            border: none;
+            padding: 10px 24px;
+            font-family: monospace;
+            font-size: 13px;
+            cursor: pointer;
+            margin-right: 12px;
+            margin-bottom: 24px;
+        }
+        button:disabled { opacity: 0.4; cursor: default; }
+        table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        th {
+            text-align: left;
+            padding: 8px 12px;
+            border-bottom: 2px solid #3D4E22;
+            font-size: 11px;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+        }
+        td {
+            padding: 7px 12px;
+            border-bottom: 1px solid #B8A88A;
+            vertical-align: top;
+            word-break: break-all;
+        }
+        tr.slowest td { background: rgba(196, 30, 30, 0.08); }
+        tr.slow td    { background: rgba(200, 150, 10, 0.08); }
+        .bar {
+            display: inline-block;
+            height: 8px;
+            background: #3D4E22;
+            vertical-align: middle;
+            margin-left: 6px;
+        }
+        #summary {
+            margin-top: 28px;
+            padding: 16px;
+            background: rgba(61, 78, 34, 0.08);
+            font-size: 13px;
+            line-height: 1.7;
+        }
+        #progress { font-size: 12px; color: #8A9A5A; margin: 12px 0; min-height: 18px; }
+        .note { font-size: 11px; color: #8A9A5A; margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+    <h1>Image Performance Test</h1>
+    <p class="sub">
+        Measures file size (via HTTP HEAD) and browser load time (via Image() + performance.now())
+        for each artwork. Sequential test gives accurate per-image timing; Parallel simulates
+        actual page load behaviour with all images competing for bandwidth.
+    </p>
+    <p class="note">Must be served via HTTP, not file:// — run: <code>python -m http.server 8080</code></p>
+
+    <button id="btnSeq">Run Sequential Test</button>
+    <button id="btnPar">Run Parallel Test</button>
+
+    <div id="progress"></div>
+
+    <table id="results">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Title</th>
+                <th>File size</th>
+                <th>Load time</th>
+                <th>Visual</th>
+            </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+    </table>
+
+    <div id="summary" style="display:none"></div>
+
+    <script>
+    const ARTWORKS = [
+        { title: 'All Things on Earth',          img: 'assets/images/\u300aAll things on earth1\u300b \u70ad\u7b14\u3001\u77ff\u7269\u989c\u6599 114\xd778cm 2022.jpg' },
+        { title: 'Life',                          img: 'assets/images/\u300alife\u300b\u9676\u74f7\u88c5\u7f6e 40\xd723\xd741cm 2024.jpg' },
+        { title: 'Spider Web',                    img: 'assets/images/\u300aSpider web\u300b\u5e03\u9762\u4e19\u70ef 40\xd740cm 2024.jpg' },
+        { title: 'Victory of Death',              img: 'assets/images/\u300aVictory of Death\u300b\u5e03\u9762\u4e19\u70ef 60\xd750cm 2023.jpg' },
+        { title: 'Virgin of the Rocks',           img: 'assets/images/\u300aVirgin of the Rocks\u300b \u5e03\u9762\u4e19\u70ef 30\xd720cm 2023.jpg' },
+        { title: 'Courtyard 1',                   img: 'assets/images/\u300a\u5ead\u9662\u7cfb\u51701\u300b\u7eb8\u672c\u6c34\u5f69 131\xd7110.5cm 2024.jpg' },
+        { title: 'Courtyard 2',                   img: 'assets/images/\u300a\u5ead\u9662\u7cfb\u51702\u300b\u4e19\u70ef\u4e9a\u9ea6\u5e03 100\xd780cm 2024.jpg' },
+        { title: 'Courtyard 3',                   img: 'assets/images/\u300a\u5ead\u9662\u7cfb\u51703\u300b \u4e19\u70ef\u4e9a\u9ea6\u5e03 120\xd7120cm 2025.jpg' },
+        { title: 'Courtyard 4',                   img: 'assets/images/\u5ead\u9662\u7cfb\u5217 4 2025 110.5 x 79.5.jpg' },
+        { title: 'Water Coconut',                 img: 'assets/images/\u300a\u6c34\u6930\u300b \u5e03\u9762\u4e19\u70ef 40\xd730cm 2024.jpg' },
+        { title: 'Wanderer',                      img: 'assets/images/\u300a\u6e38\u8361\u8005\u300b\u7eb8\u672c\u6c34\u5f69 53\xd736.8cm 2024.jpg' },
+        { title: 'A Corner of the County Seat',   img: 'assets/images/\u53bf\u57ce\u4e00\u89d2 60\xd730cm 2025.jpg' },
+        { title: 'Taihu Rocks',                   img: 'assets/images/\u592a\u6e56\u77f3 \u7eb8\u672c\u6c34\u5f69 76.6\xd757.3cm 2023.jpg' },
+        { title: 'The Lonely Boat',               img: 'assets/images/\u5b64\u821f \u4e19\u70ef\u4e9a\u9ea6\u5e03 80\xd760cm 2025.jpg' },
+        { title: 'The Abandoned House',           img: 'assets/images/\u5e9f\u5f03\u7684\u623f\u5b50 \u4e19\u70ef\u4e9a\u9ea6\u5e03 80\xd760cm 2024.jpg' },
+        { title: 'Dead Trees',                    img: 'assets/images/\u67af\u6811 \u4e19\u70ef\u4e9a\u9ea6\u5e03 120\xd780cm 2025.jpg' },
+        { title: '瓷板画 1',                       img: 'assets/images/\u74f7\u677f\u75481.jpg' },
+        { title: '瓷板画 2',                       img: 'assets/images/\u74f7\u677f\u75482.jpg' },
+        { title: '瓷板画 5',                       img: 'assets/images/\u74f7\u677f\u75485.jpg' },
+        { title: '瓷板画 6',                       img: 'assets/images/\u74f7\u677f\u75486.jpg' },
+        { title: '瓷板画 7',                       img: 'assets/images/\u74f7\u677f\u75487.JPG' },
+    ];
+
+    const btnSeq   = document.getElementById('btnSeq');
+    const btnPar   = document.getElementById('btnPar');
+    const tbody    = document.getElementById('tbody');
+    const progress = document.getElementById('progress');
+    const summary  = document.getElementById('summary');
+
+    function fmtBytes(b) {
+        if (b == null) return '—';
+        if (b >= 1048576) return (b / 1048576).toFixed(1) + ' MB';
+        return (b / 1024).toFixed(0) + ' KB';
+    }
+    function fmtMs(ms) {
+        return ms == null ? '—' : ms.toFixed(0) + ' ms';
+    }
+
+    async function fetchSize(url) {
+        try {
+            const r = await fetch(url, { method: 'HEAD' });
+            const cl = r.headers.get('Content-Length');
+            return cl ? parseInt(cl, 10) : null;
+        } catch { return null; }
+    }
+
+    function timeLoad(url) {
+        return new Promise(resolve => {
+            const t0  = performance.now();
+            const img = new Image();
+            img.onload  = () => resolve(performance.now() - t0);
+            img.onerror = () => resolve(null);
+            img.src = url + '?t=' + Date.now();
+        });
+    }
+
+    function renderRow(i, art, size, ms, maxMs) {
+        const row  = document.createElement('tr');
+        const barW = maxMs > 0 && ms != null ? Math.round((ms / maxMs) * 160) : 0;
+        if (ms != null && ms === maxMs) row.className = 'slowest';
+        else if (ms != null && ms > maxMs * 0.5) row.className = 'slow';
+
+        const fname = art.img.split('/').pop();
+        row.innerHTML = `
+            <td>${i + 1}</td>
+            <td>${art.title}<br><span style="font-size:10px;color:#8A9A5A">${fname.length > 44 ? fname.slice(0, 44) + '…' : fname}</span></td>
+            <td>${fmtBytes(size)}</td>
+            <td>${fmtMs(ms)}</td>
+            <td><span class="bar" style="width:${barW}px"></span></td>
+        `;
+        return row;
+    }
+
+    function disableButtons() { btnSeq.disabled = true; btnPar.disabled = true; }
+    function enableButtons()  { btnSeq.disabled = false; btnPar.disabled = false; }
+
+    async function runSequential() {
+        disableButtons();
+        tbody.innerHTML = '';
+        summary.style.display = 'none';
+        progress.textContent = 'Fetching file sizes…';
+
+        // Placeholder rows
+        const rows = ARTWORKS.map((art, i) => {
+            const row = document.createElement('tr');
+            row.innerHTML = `<td>${i + 1}</td><td>${art.title}</td><td>…</td><td>…</td><td></td>`;
+            tbody.appendChild(row);
+            return row;
+        });
+
+        const sizes = await Promise.all(ARTWORKS.map(a => fetchSize(a.img)));
+        const results = [];
+
+        for (let i = 0; i < ARTWORKS.length; i++) {
+            progress.textContent = `Loading ${i + 1} / ${ARTWORKS.length}: ${ARTWORKS[i].title}`;
+            const ms = await timeLoad(ARTWORKS[i].img);
+            results.push({ art: ARTWORKS[i], size: sizes[i], ms });
+        }
+
+        const maxMs = Math.max(...results.map(r => r.ms ?? 0));
+        results.forEach((r, i) => tbody.replaceChild(renderRow(i, r.art, r.size, r.ms, maxMs), rows[i]));
+
+        showSummary(results, 'sequential', maxMs);
+        progress.textContent = 'Done.';
+        enableButtons();
+    }
+
+    async function runParallel() {
+        disableButtons();
+        tbody.innerHTML = '';
+        summary.style.display = 'none';
+        progress.textContent = 'Loading all 21 images in parallel…';
+
+        const [sizes, times] = await Promise.all([
+            Promise.all(ARTWORKS.map(a => fetchSize(a.img))),
+            Promise.all(ARTWORKS.map(a => timeLoad(a.img))),
+        ]);
+
+        const maxMs = Math.max(...times.map(ms => ms ?? 0));
+        ARTWORKS.forEach((art, i) => tbody.appendChild(renderRow(i, art, sizes[i], times[i], maxMs)));
+
+        const results = ARTWORKS.map((art, i) => ({ art, size: sizes[i], ms: times[i] }));
+        showSummary(results, 'parallel', maxMs);
+        progress.textContent = 'Done.';
+        enableButtons();
+    }
+
+    function showSummary(results, mode, maxMs) {
+        const valid      = results.filter(r => r.ms != null);
+        const totalMs    = valid.reduce((a, r) => a + r.ms, 0);
+        const totalBytes = results.reduce((a, r) => a + (r.size || 0), 0);
+        const top3       = [...valid].sort((a, b) => b.ms - a.ms).slice(0, 3)
+            .map(r => `${r.art.title} — ${fmtMs(r.ms)} (${fmtBytes(r.size)})`).join('<br>');
+
+        summary.innerHTML = `
+            <strong>Mode:</strong> ${mode}<br>
+            <strong>Total declared size:</strong> ${fmtBytes(totalBytes)}<br>
+            <strong>Cumulative load time:</strong> ${fmtMs(totalMs)}<br>
+            <strong>Slowest single image:</strong> ${fmtMs(maxMs)}<br>
+            <strong>Top 3 slowest:</strong><br>${top3}
+        `;
+        summary.style.display = 'block';
+    }
+
+    btnSeq.addEventListener('click', runSequential);
+    btnPar.addEventListener('click', runParallel);
+    </script>
+</body>
+</html>

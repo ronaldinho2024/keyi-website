@@ -1,0 +1,51 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400&display=swap');
+
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html, body {
+    width: 100%;
+    height: 100%;
+}
+
+body.splash {
+    background-color: #9B2020;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    cursor: pointer;
+    font-family: 'Noto Serif SC', serif;
+}
+
+.chars {
+    display: flex;
+    align-items: center;
+    gap: clamp(12px, 3vw, 40px);
+    user-select: none;
+}
+
+.char {
+    font-size: clamp(80px, 18vw, 220px);
+    font-weight: 400;
+    color: #F0E6CC;
+    line-height: 1;
+    display: inline-block;
+    will-change: transform;
+    opacity: 0;
+}
+
+.byline {
+    position: fixed;
+    bottom: clamp(20px, 4vw, 40px);
+    right: clamp(24px, 4vw, 48px);
+    font-family: 'Noto Serif SC', serif;
+    font-weight: 300;
+    font-size: 14px;
+    letter-spacing: 0.15em;
+    color: #C9B99A;
+    user-select: none;
+}

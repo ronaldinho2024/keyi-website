@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fan Keyi — Works</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        body.works-page {
+            background: var(--bg);
+            min-height: 100vh;
+        }
+
+        .works-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 2px;
+            padding-top: 80px;
+        }
+
+        .works-item {
+            display: block;
+            position: relative;
+            overflow: hidden;
+            background: var(--cream);
+            aspect-ratio: 1;
+        }
+
+        .works-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+            transition: transform 0.5s ease, opacity 0.3s ease;
+        }
+
+        .works-item:hover img {
+            transform: scale(1.03);
+            opacity: 0.85;
+        }
+
+        .works-item-caption {
+            position: absolute;
+            bottom: 0; left: 0; right: 0;
+            padding: 16px 20px 14px;
+            background: linear-gradient(transparent, rgba(30, 42, 12, 0.55));
+            opacity: 0;
+            transform: translateY(4px);
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+
+        .works-item:hover .works-item-caption {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .works-item-title {
+            font-family: 'EB Garamond', Georgia, serif;
+            font-size: 13px;
+            letter-spacing: 0.12em;
+            color: #f5f0e8;
+            display: block;
+        }
+
+        .works-item-year {
+            font-family: 'EB Garamond', Georgia, serif;
+            font-size: 11px;
+            letter-spacing: 0.16em;
+            color: rgba(245, 240, 232, 0.7);
+            display: block;
+            margin-top: 2px;
+        }
+
+        @media (max-width: 900px) {
+            .works-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+
+        @media (max-width: 500px) {
+            .works-grid { grid-template-columns: 1fr; }
+        }
+
+        /* ── Detail overlay: mobile ─────────────────────────────────── */
+        @media (max-width: 800px) {
+            #detail-overlay { flex-direction: column; overflow-y: auto; }
+            #detail-image-wrap { width: 100%; padding: 80px 32px 32px; }
+            #detail-img { max-height: 55vw; }
+            #detail-text { width: 100%; padding: 32px 32px 64px; }
+        }
+
+        /* ── Lightbox ────────────────────────────────────────────────── */
+        #detail-img {
+            cursor: zoom-in;
+        }
+
+        #lightbox {
+            position: fixed;
+            inset: 0;
+            z-index: 300;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(20, 28, 10, 0.55);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.35s ease;
+        }
+
+        #lightbox.visible {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        #lightbox-img {
+            max-width: 90vw;
+            max-height: 90vh;
+            object-fit: contain;
+            display: block;
+            transform: scale(0.92);
+            transition: transform 0.35s ease, opacity 0.35s ease;
+            opacity: 0;
+            cursor: default;
+        }
+
+        #lightbox.visible #lightbox-img {
+            transform: scale(1);
+            opacity: 1;
+        }
+    </style>
+</head>
+<body class="works-page">
+
+    <nav class="site-nav">
+        <a class="nav-brand" href="homepage.html">Fan Keyi</a>
+        <ul class="nav-links">
+            <li><a href="works.html">Works</a></li>
+            <li><a href="exhibitions.html">Exhibitions</a></li>
+            <li><a href="contact.html">Contact</a></li>
+        </ul>
+    </nav>
+
+    <main id="gallery" class="works-grid"></main>
+
+    <div id="lightbox">
+        <img id="lightbox-img" src="" alt="">
+    </div>
+
+    <div id="detail-overlay">
+        <div id="detail-image-wrap">
+            <img id="detail-img" src="" alt="">
+        </div>
+        <div id="detail-text">
+            <div id="detail-section-en">
+                <h1 id="detail-title-en"></h1>
+                <p id="detail-meta-en"></p>
+                <div id="detail-desc-en"></div>
+            </div>
+            <div id="detail-section-zh">
+                <h2 id="detail-title-zh"></h2>
+                <p id="detail-meta-zh"></p>
+                <div id="detail-desc-zh"></div>
+            </div>
+        </div>
+        <button id="detail-close">← Works</button>
+        <button id="detail-prev">←</button>
+        <button id="detail-next">→</button>
+    </div>
+
+    <script type="module">
+        import { ARTWORKS } from './js/artworks.js';
+
+        function renderDesc(text, cls) {
+            if (!text) return '';
+            return text.trim().split(/\n\n+/).map(p =>
+                `<p class="${cls}">${p.replace(/\n/g, '<br>')}</p>`
+            ).join('');
+        }
+
+        const gallery   = document.getElementById('gallery');
+        const overlay   = document.getElementById('detail-overlay');
+        const detailImg = document.getElementById('detail-img');
+        const titleEn   = document.getElementById('detail-title-en');
+        const metaEn    = document.getElementById('detail-meta-en');
+        const descEnEl  = document.getElementById('detail-desc-en');
+        const titleZh   = document.getElementById('detail-title-zh');
+        const metaZh    = document.getElementById('detail-meta-zh');
+        const descZhEl  = document.getElementById('detail-desc-zh');
+        const closeBtn  = document.getElementById('detail-close');
+        const prevBtn   = document.getElementById('detail-prev');
+        const nextBtn   = document.getElementById('detail-next');
+
+        let currentIdx = -1;
+
+        // ── Render gallery ───────────────────────────────────────────
+        gallery.innerHTML = ARTWORKS.map(aw => `
+            <a class="works-item" href="work.html?id=${aw.id}">
+                <img src="${aw.img}" alt="${aw.title}" loading="lazy">
+                <div class="works-item-caption">
+                    <span class="works-item-title">${aw.title}</span>
+                    ${aw.year ? `<span class="works-item-year">${aw.year}</span>` : ''}
+                </div>
+            </a>
+        `).join('');
+
+        // ── Overlay helpers ──────────────────────────────────────────
+        function populate(idx) {
+            const aw = ARTWORKS[idx];
+            detailImg.src = aw.img;
+            detailImg.alt = aw.title;
+            titleEn.textContent = aw.title;
+            metaEn.textContent = [aw.mediumEn, aw.dimensions, aw.year].filter(Boolean).join('  ·  ');
+            descEnEl.innerHTML = renderDesc(aw.descriptionEn, 'detail-desc-en');
+            titleZh.textContent = aw.titleZh || aw.title;
+            metaZh.textContent = [aw.medium, aw.dimensions, aw.year].filter(Boolean).join(' · ');
+            descZhEl.innerHTML = renderDesc(aw.descriptionZh, 'detail-desc-zh');
+            prevBtn.style.visibility = idx > 0                    ? 'visible' : 'hidden';
+            nextBtn.style.visibility = idx < ARTWORKS.length - 1  ? 'visible' : 'hidden';
+            currentIdx = idx;
+        }
+
+        function openOverlay(idx) {
+            populate(idx);
+            overlay.classList.add('visible');
+            document.body.style.overflow = 'hidden';
+            history.pushState({ id: ARTWORKS[idx].id }, '', `?id=${ARTWORKS[idx].id}`);
+        }
+
+        function closeOverlay() {
+            overlay.classList.remove('visible');
+            document.body.style.overflow = '';
+            history.pushState(null, '', 'works.html');
+            currentIdx = -1;
+        }
+
+        // ── Gallery click: intercept <a> links ───────────────────────
+        gallery.addEventListener('click', e => {
+            const item = e.target.closest('.works-item');
+            if (!item) return;
+            e.preventDefault();
+            const params = new URLSearchParams(item.href.split('?')[1] || '');
+            const idx = ARTWORKS.findIndex(a => a.id === params.get('id'));
+            if (idx !== -1) openOverlay(idx);
+        });
+
+        // ── Controls ─────────────────────────────────────────────────
+        closeBtn.addEventListener('click', () => closeOverlay());
+
+        prevBtn.addEventListener('click', () => {
+            if (currentIdx > 0) {
+                populate(currentIdx - 1);
+                history.replaceState({ id: ARTWORKS[currentIdx].id }, '', `?id=${ARTWORKS[currentIdx].id}`);
+            }
+        });
+
+        nextBtn.addEventListener('click', () => {
+            if (currentIdx < ARTWORKS.length - 1) {
+                populate(currentIdx + 1);
+                history.replaceState({ id: ARTWORKS[currentIdx].id }, '', `?id=${ARTWORKS[currentIdx].id}`);
+            }
+        });
+
+        // ── Lightbox ─────────────────────────────────────────────────
+        const lightbox    = document.getElementById('lightbox');
+        const lightboxImg = document.getElementById('lightbox-img');
+
+        function openLightbox(src, alt) {
+            lightboxImg.src = src;
+            lightboxImg.alt = alt;
+            lightbox.classList.add('visible');
+        }
+
+        function closeLightbox() {
+            lightbox.classList.remove('visible');
+        }
+
+        detailImg.addEventListener('click', () => {
+            openLightbox(detailImg.src, detailImg.alt);
+        });
+
+        lightbox.addEventListener('click', e => {
+            if (e.target !== lightboxImg) closeLightbox();
+        });
+
+        // ── Keyboard ─────────────────────────────────────────────────
+        document.addEventListener('keydown', e => {
+            if (lightbox.classList.contains('visible')) {
+                if (e.key === 'Escape') { closeLightbox(); return; }
+            }
+            if (!overlay.classList.contains('visible')) return;
+            if (e.key === 'Escape')      closeOverlay();
+            if (e.key === 'ArrowLeft')   prevBtn.click();
+            if (e.key === 'ArrowRight')  nextBtn.click();
+        });
+
+        // ── Browser back/forward ─────────────────────────────────────
+        window.addEventListener('popstate', () => {
+            const id = new URLSearchParams(window.location.search).get('id');
+            if (id) {
+                const idx = ARTWORKS.findIndex(a => a.id === id);
+                if (idx !== -1) {
+                    if (overlay.classList.contains('visible')) {
+                        populate(idx);
+                    } else {
+                        populate(idx);
+                        overlay.classList.add('visible');
+                        document.body.style.overflow = 'hidden';
+                    }
+                }
+            } else {
+                overlay.classList.remove('visible');
+                document.body.style.overflow = '';
+                currentIdx = -1;
+            }
+        });
+
+        // ── Handle direct link: works.html?id=X ─────────────────────
+        const initId = new URLSearchParams(window.location.search).get('id');
+        if (initId) {
+            const idx = ARTWORKS.findIndex(a => a.id === initId);
+            if (idx !== -1) {
+                populate(idx);
+                overlay.classList.add('visible');
+                document.body.style.overflow = 'hidden';
+            }
+        }
+    </script>
+
+</body>
+</html>

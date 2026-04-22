@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Hover Expand Gallery</title>
+
+<style>
+/* ── Reset ─────────────────────────────────────────────────────────── */
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background: #0f0f0f;
+  height: 100vh;
+  font-family: sans-serif;
+  overflow: hidden;
+}
+
+/* ── Gallery container ─────────────────────────────────────────────── */
+.gallery {
+  display: flex;
+  width: 100%;
+  height: 100vh;
+}
+
+/* ── Individual items ──────────────────────────────────────────────── */
+.item {
+  flex: 1 1 0%;
+  min-width: 0;
+  position: relative;
+  cursor: pointer;
+  will-change: flex-basis;
+}
+
+/*
+ * z-index only — .active is kept solely so the closest item
+ * sits above its neighbours. All other visuals are JS-driven.
+ */
+.item.active .card {
+  z-index: 2;
+}
+
+/* ── Inner card ────────────────────────────────────────────────────── */
+/*
+ * No CSS transitions here. Removing them is the core fix:
+ * previously, toggling .active caused CSS transitions to fire
+ * from their rest state on the new element — that was the snap.
+ * Now JS lerp writes transform/shadow directly every frame.
+ */
+.card {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: 14px;
+  transform-origin: left center;
+  will-change: transform;
+}
+
+/* ── Images ────────────────────────────────────────────────────────── */
+/*
+ * No CSS transition — scale is written by JS every frame
+ * from the same lerped weight that drives flex-basis.
+ */
+.item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  will-change: transform;
+  user-select: none;
+  pointer-events: none;
+}
+
+/* ── Overlay ───────────────────────────────────────────────────────── */
+/*
+ * Opacity is set via --dim custom property, written by JS each frame.
+ * This replaces the .has-active / .active class toggle that previously
+ * caused discrete opacity jumps when the active item changed.
+ */
+.card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.3);
+  opacity: var(--dim, 0);
+  pointer-events: none;
+}
+
+/* ── Mobile ────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  body { overflow-y: auto; }
+
+  .gallery {
+    flex-direction: column;
+    height: auto;
+    min-height: 100vh;
+  }
+
+  .item {
+    min-height: 100px;
+    will-change: flex-basis;
+  }
+}
+</style>
+</head>
+
+<body>
+
+<div class="gallery" id="gallery">
+  <div class="item"><div class="card"><img src="https://picsum.photos/800/1200?1" alt="Gallery image 1"></div></div>
+  <div class="item"><div class="card"><img src="https://picsum.photos/800/1200?2" alt="Gallery image 2"></div></div>
+  <div class="item"><div class="card"><img src="https://picsum.photos/800/1200?3" alt="Gallery image 3"></div></div>
+  <div class="item"><div class="card"><img src="https://picsum.photos/800/1200?4" alt="Gallery image 4"></div></div>
+  <div class="item"><div class="card"><img src="https://picsum.photos/800/1200?5" alt="Gallery image 5"></div></div>
+</div>
+
+<script>
+  const gallery = document.getElementById('gallery');
+  const items   = Array.from(gallery.querySelectorAll('.item'));
+  const cards   = items.map(el => el.querySelector('.card'));
+  const imgs    = items.map(el => el.querySelector('img'));
+  const N       = items.length;
+
+  /* ── Tunables ────────────────────────────────────────────────────── */
+  const MAX   = 3.2;   // peak flex multiplier (cursor directly over item)
+  const MIN   = 0.55;  // floor flex multiplier (far from cursor)
+  const LERP  = 0.085; // interpolation speed — same rate for all properties
+  const SIGMA = 1.2;   // Gaussian spread in item-widths
+
+  /* ── State ───────────────────────────────────────────────────────── */
+  // Two parallel arrays: flex values and visual weights.
+  // Keeping them separate lets us tune them independently if needed,
+  // but they share the same lerp rate so they stay in sync.
+  let targetFlex  = new Array(N).fill(1);   // flex target per item
+  let currentFlex = new Array(N).fill(1);   // lerped flex value
+
+  let targetW     = new Array(N).fill(0);   // raw Gaussian weight (0–1)
+  let currentW    = new Array(N).fill(0);   // lerped weight — drives all visuals
+
+  // Global "hover intensity": lerps 0→1 when cursor enters, 1→0 when it leaves.
+  // Multiplying overlay by this gives a clean fade-in/out of the dim effect
+  // rather than a hard cut when the cursor first enters/leaves.
+  let globalTarget  = 0;
+  let globalCurrent = 0;
+
+  let activeIndex = -1; // index of closest item — for z-index only
+
+  /* ── Gaussian ───────────────────────────────────────────────────── */
+  function gauss(dist) {
+    return Math.exp(-(dist * dist) / (2 * SIGMA * SIGMA));
+  }
+
+  /* ── Update targets from continuous cursor X ────────────────────── */
+  function updateFromCursor(clientX) {
+    const rect = gallery.getBoundingClientRect();
+    const x    = Math.min(Math.max(clientX - rect.left, 0), rect.width);
+    const t    = (x / rect.width) * N; // cursor in item-space
+
+    let maxW = -Infinity;
+    let newActive = 0;
+
+    for (let i = 0; i < N; i++) {
+      const w   = gauss(t - (i + 0.5));
+      targetW[i]    = w;
+      targetFlex[i] = MIN + (MAX - MIN) * w;
+      if (w > maxW) { maxW = w; newActive = i; }
+    }
+
+    globalTarget = 1;
+
+    // .active only controls z-index — update only when the closest item changes
+    if (newActive !== activeIndex) {
+      activeIndex = newActive;
+      items.forEach((el, i) => el.classList.toggle('active', i === activeIndex));
+    }
+  }
+
+  /* ── Reset ───────────────────────────────────────────────────────── */
+  function clearActive() {
+    activeIndex   = -1;
+    globalTarget  = 0;
+    targetFlex    = new Array(N).fill(1);
+    targetW       = new Array(N).fill(0);
+    items.forEach(el => el.classList.remove('active'));
+  }
+
+  /* ── Events ──────────────────────────────────────────────────────── */
+  gallery.addEventListener('mousemove', e => updateFromCursor(e.clientX));
+  gallery.addEventListener('mouseleave', clearActive);
+
+  // Mobile tap: place cursor at item centre
+  items.forEach((item, i) => {
+    item.addEventListener('click', () => {
+      if (i === activeIndex) {
+        clearActive();
+      } else {
+        const rect    = gallery.getBoundingClientRect();
+        const centerX = rect.left + ((i + 0.5) / N) * rect.width;
+        updateFromCursor(centerX);
+      }
+    });
+  });
+
+  /* ── rAF loop ────────────────────────────────────────────────────── *
+   *                                                                    *
+   * Single source of truth for every animated property.               *
+   * All values interpolate toward their targets at the same LERP rate,*
+   * so flex-basis, transform, scale, shadow, and overlay are always   *
+   * mathematically in sync — no CSS transition can desync them.       */
+  function animate() {
+    let dirty = false;
+
+    // Lerp global hover intensity
+    const gDiff = globalTarget - globalCurrent;
+    if (Math.abs(gDiff) > 0.0002) {
+      globalCurrent += gDiff * LERP;
+      dirty = true;
+    } else {
+      globalCurrent = globalTarget;
+    }
+
+    for (let i = 0; i < N; i++) {
+      const fDiff = targetFlex[i] - currentFlex[i];
+      const wDiff = targetW[i]    - currentW[i];
+
+      if (Math.abs(fDiff) > 0.0002) { currentFlex[i] += fDiff * LERP; dirty = true; }
+      else currentFlex[i] = targetFlex[i];
+
+      if (Math.abs(wDiff) > 0.0002) { currentW[i] += wDiff * LERP; dirty = true; }
+      else currentW[i] = targetW[i];
+    }
+
+    if (dirty) {
+      const total = currentFlex.reduce((a, b) => a + b, 0);
+
+      for (let i = 0; i < N; i++) {
+        const w = currentW[i]; // 0–1, smooth
+
+        // Width
+        items[i].style.flexBasis = (currentFlex[i] / total * 100) + '%';
+
+        // Pull-out + slight scale on the card
+        // translateX: 0px at rest → 10px at full weight
+        // scale: 1.0 at rest → 1.02 at full weight
+        cards[i].style.transform =
+          `translateX(${w * 10}px) scale(${1 + w * 0.02})`;
+
+        // Shadow grows with weight
+        cards[i].style.boxShadow =
+          w > 0.01
+            ? `0 ${w * 24}px ${w * 64}px rgba(0,0,0,${(w * 0.5).toFixed(3)})`
+            : 'none';
+
+        // Image counter-zoom: 1.08 at rest → 1.0 at full weight
+        imgs[i].style.transform = `scale(${1.08 - w * 0.08})`;
+
+        // Overlay: dim = globalCurrent controls fade-in/out of the whole effect;
+        // (1 - w) means the active item is always clear, others are dimmed.
+        const dim = globalCurrent * (1 - w);
+        cards[i].style.setProperty('--dim', dim.toFixed(3));
+      }
+    }
+
+    requestAnimationFrame(animate);
+  }
+
+  animate();
+</script>
+
+</body>
+</html>

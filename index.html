@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Keyi</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400&display=swap');
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body { width: 100%; height: 100%; }
+
+        body {
+            background-color: #EDE0C8;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            cursor: pointer;
+            font-family: 'Noto Serif SC', serif;
+        }
+
+        /* Shrink-wraps around the chars so byline can anchor to its corner */
+        .chars-wrap {
+            position: relative;
+            display: inline-block;
+        }
+
+        .chars {
+            display: flex;
+            align-items: center;
+            gap: clamp(14px, 3.5vw, 52px);
+        }
+
+        /* Each character group stacks all layers in the same cell */
+        .char-group {
+            display: grid;
+            user-select: none;
+        }
+        .char-group > span {
+            grid-area: 1 / 1;
+            font-size: clamp(100px, 22vw, 270px);
+            font-weight: 400;
+            line-height: 1;
+            display: block;
+            will-change: transform;
+        }
+
+        /* Fragment colours (each quadrant shows one quarter via clip-path) */
+        .g0 .frag { color: #C41E1E; }
+        .g1 .frag { color: #2E7D3A; }
+        .g2 .frag { color: #C8960A; }
+
+        .frag.tl { clip-path: inset(0 50% 50% 0); }
+        .frag.tr { clip-path: inset(0 0   50% 50%); }
+        .frag.bl { clip-path: inset(50% 50% 0 0); }
+        .frag.br { clip-path: inset(50% 0   0 50%); }
+
+        /* Echo layers — sibling colours bleed through */
+        .g0 .e1 { color: #2E7D3A; opacity: 0.32; }
+        .g0 .e2 { color: #C8960A; opacity: 0.24; }
+        .g1 .e1 { color: #C8960A; opacity: 0.32; }
+        .g1 .e2 { color: #C41E1E; opacity: 0.24; }
+        .g2 .e1 { color: #C41E1E; opacity: 0.32; }
+        .g2 .e2 { color: #2E7D3A; opacity: 0.24; }
+
+        /* "Fan Keyi" anchored to the bottom-right corner of the chars block */
+        .byline {
+            position: absolute;
+            right: 0;
+            bottom: 0;
+            transform: translateY(calc(100% + 5px));
+            font-weight: 300;
+            font-size: clamp(10px, 1.1vw, 14px);
+            letter-spacing: 0.15em;
+            color: #3D4E22;
+            white-space: nowrap;
+        }
+    </style>
+</head>
+<body>
+    <div class="chars-wrap">
+        <div class="chars">
+            <div class="char-group g0">
+                <span class="e2"></span>
+                <span class="e1"></span>
+                <span class="frag tl"></span>
+                <span class="frag tr"></span>
+                <span class="frag bl"></span>
+                <span class="frag br"></span>
+            </div>
+            <div class="char-group g1">
+                <span class="e2"></span>
+                <span class="e1"></span>
+                <span class="frag tl"></span>
+                <span class="frag tr"></span>
+                <span class="frag bl"></span>
+                <span class="frag br"></span>
+            </div>
+            <div class="char-group g2">
+                <span class="e2"></span>
+                <span class="e1"></span>
+                <span class="frag tl"></span>
+                <span class="frag tr"></span>
+                <span class="frag bl"></span>
+                <span class="frag br"></span>
+            </div>
+        </div>
+        <p class="byline">Fan Keyi</p>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+    <script>
+        const CHARS = ['范', '可', '怡'];
+        document.querySelectorAll('.char-group').forEach((g, i) => {
+            g.querySelectorAll('span').forEach(s => s.textContent = CHARS[i]);
+        });
+
+        // ── Layer registry ───────────────────────────────────────────────────
+        // Each entry: position state + how to animate (idle + mouse)
+        //   dx/dy: the quadrant's "home direction" (±1) so frags pull apart organically
+        const LAYER_DEFS = [
+            // Echoes — whole character, different sibling color, slow & wide
+            { cls: 'e2',  strength: 2.4, lerpF: 0.055, rotMul:  2.0, ax: 22, ay: 16, ar: 4.0, fs: 1.3, dx: 0, dy: 0 },
+            { cls: 'e1',  strength: 1.6, lerpF: 0.080, rotMul:  1.3, ax: 14, ay: 20, ar: 2.5, fs: 0.9, dx: 0, dy: 0 },
+            // Fragments — clipped quadrants, each biased to drift toward its corner
+            { cls: 'tl',  strength: 0.9, lerpF: 0.130, rotMul: -0.5, ax: 14, ay: 12, ar: 2.2, fs: 1.2, dx: -1, dy: -1 },
+            { cls: 'tr',  strength: 1.0, lerpF: 0.115, rotMul:  0.6, ax: 11, ay: 14, ar: 1.9, fs: 0.85, dx:  1, dy: -1 },
+            { cls: 'bl',  strength: 1.1, lerpF: 0.125, rotMul:  0.4, ax: 13, ay: 11, ar: 2.4, fs: 1.35, dx: -1, dy:  1 },
+            { cls: 'br',  strength: 1.0, lerpF: 0.145, rotMul: -0.7, ax: 12, ay: 13, ar: 1.7, fs: 0.95, dx:  1, dy:  1 },
+        ];
+
+        const layers = [];
+        document.querySelectorAll('.char-group').forEach((g, gi) => {
+            LAYER_DEFS.forEach((def, di) => {
+                const el = g.querySelector('.' + def.cls);
+                const phase = gi * 1.4 + di * 2.1;
+                layers.push({ el, cx: 0, cy: 0, cr: 0, phase, ...def });
+            });
+        });
+
+        // ── Entrance animation ───────────────────────────────────────────────
+        const fragEls = layers.filter(l => ['tl','tr','bl','br'].includes(l.cls)).map(l => l.el);
+        const echoEls = layers.filter(l => ['e1','e2'].includes(l.cls)).map(l => l.el);
+
+        gsap.set([...fragEls, ...echoEls], { autoAlpha: 0, scale: 0.82 });
+        // Stagger by character: all 4 frags of each char enter together
+        [0, 1, 2].forEach(gi => {
+            const groupFrags = fragEls.slice(gi * 4, gi * 4 + 4);
+            gsap.to(groupFrags, {
+                autoAlpha: 1, scale: 1, duration: 1.1, ease: 'expo.out', delay: gi * 0.22
+            });
+        });
+        gsap.to(echoEls, { autoAlpha: 1, duration: 0.9, ease: 'power2.out', delay: 0.8 });
+
+        // ── Motion loop ──────────────────────────────────────────────────────
+        let mode = 'idle';
+        let mouseNX = 0, mouseNY = 0;
+        const MAX_T = 32, MAX_R = 8;
+        const BASE_FREQ = 0.0012;
+
+        window.addEventListener('mousemove', e => {
+            mode = 'mouse';
+            mouseNX = (e.clientX / window.innerWidth  - 0.5) * 2;
+            mouseNY = (e.clientY / window.innerHeight - 0.5) * 2;
+        });
+
+        (function tick() {
+            const t = Date.now();
+            layers.forEach(l => {
+                let tx, ty, tr;
+
+                if (mode === 'idle') {
+                    const f = BASE_FREQ * l.fs;
+                    // Fragments drift toward their quadrant corner; echoes drift freely
+                    tx = Math.sin(t * f       + l.phase) * l.ax * (l.dx || 1);
+                    ty = Math.cos(t * f * 0.8 + l.phase) * l.ay * (l.dy || 1);
+                    tr = Math.sin(t * f * 0.6 + l.phase) * l.ar;
+                } else {
+                    tx = mouseNX * MAX_T * l.strength;
+                    ty = mouseNY * MAX_T * l.strength;
+                    tr = mouseNX * MAX_R * l.rotMul;
+                    // Extra corner-bias for fragments on mouse move
+                    if (l.dx) {
+                        tx += mouseNX * 10 * l.dx;
+                        ty += mouseNY * 10 * l.dy;
+                    }
+                }
+
+                l.cx += (tx - l.cx) * l.lerpF;
+                l.cy += (ty - l.cy) * l.lerpF;
+                l.cr += (tr - l.cr) * l.lerpF;
+                gsap.set(l.el, { x: l.cx, y: l.cy, rotation: l.cr });
+            });
+            requestAnimationFrame(tick);
+        })();
+
+        // ── Exit on click ────────────────────────────────────────────────────
+        let exiting = false;
+        document.body.addEventListener('click', () => {
+            if (exiting) return;
+            exiting = true;
+            gsap.to(document.body, {
+                autoAlpha: 0, duration: 0.6, ease: 'expo.inOut',
+                onComplete: () => { window.location.href = 'homepage.html'; }
+            });
+        });
+
+        // ── Preload homepage images into browser cache ────────────────────────
+        import('./js/artworks.js').then(({ ARTWORKS }) => {
+            function encodePath(path) {
+                return path.split('/').map(encodeURIComponent).join('/');
+            }
+            ARTWORKS.forEach(aw => {
+                const img = new Image();
+                img.src = encodePath(aw.img);
+            });
+        });
+    </script>
+</body>
+</html>

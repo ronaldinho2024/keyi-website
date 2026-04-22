@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fan Keyi</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        @media (max-width: 800px) {
+            #detail-overlay { flex-direction: column; overflow-y: auto; }
+            #detail-image-wrap { width: 100%; padding: 80px 32px 32px; }
+            #detail-img { max-height: 55vw; }
+            #detail-text { width: 100%; padding: 32px 32px 64px; }
+        }
+    </style>
+</head>
+<body class="home" style="overflow:hidden;">
+
+    <nav class="site-nav">
+        <a class="nav-brand" href="homepage.html">Fan Keyi</a>
+        <ul class="nav-links">
+            <li><a href="works.html">Works</a></li>
+            <li><a href="exhibitions.html">Exhibitions</a></li>
+            <li><a href="contact.html">Contact</a></li>
+        </ul>
+    </nav>
+
+    <canvas id="scene"></canvas>
+    <p class="scroll-hint" id="scrollHint">Scroll</p>
+    <div id="art-title"></div>
+
+    <!-- Loading screen -->
+    <div id="loading-screen">
+        <span id="loading-pct">0%</span>
+    </div>
+
+    <!-- Detail overlay (same-page) -->
+    <div id="detail-overlay">
+        <div id="detail-image-wrap">
+            <img id="detail-img" src="" alt="">
+        </div>
+        <div id="detail-text">
+            <div id="detail-section-en">
+                <h1 id="detail-title-en"></h1>
+                <p id="detail-meta-en"></p>
+                <div id="detail-desc-en"></div>
+            </div>
+            <div id="detail-section-zh">
+                <h2 id="detail-title-zh"></h2>
+                <p id="detail-meta-zh"></p>
+                <div id="detail-desc-zh"></div>
+            </div>
+        </div>
+        <button id="detail-close">← Works</button>
+        <button id="detail-prev" aria-label="Previous artwork">&#8592;</button>
+        <button id="detail-next" aria-label="Next artwork">&#8594;</button>
+    </div>
+
+    <!-- Lightbox -->
+    <div id="lightbox">
+        <img id="lightbox-img" src="" alt="">
+    </div>
+
+    <script type="importmap">
+    {"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js"}}
+    </script>
+    <script type="module">
+    import * as THREE from 'three';
+    import { ARTWORKS as _ARTWORKS } from './js/artworks.js';
+
+    // Fisher-Yates shuffle — new random order each page load
+    const ARTWORKS = [..._ARTWORKS];
+    for (let i = ARTWORKS.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [ARTWORKS[i], ARTWORKS[j]] = [ARTWORKS[j], ARTWORKS[i]];
+    }
+
+    const N = ARTWORKS.length;
+
+    /* ── Loading screen ─────────────────────────────────────────────── */
+    const loadingScreen = document.getElementById('loading-screen');
+    const loadingPctEl  = document.getElementById('loading-pct');
+    let   loadedCount   = 0;
+    let   allLoaded     = false;
+
+    const LOAD_ANIM_DUR = 4000; // ms — minimum count-up duration
+    const loadStart     = performance.now();
+
+    function tickLoader(now) {
+        const elapsed  = now - loadStart;
+        const progress = Math.min(elapsed / LOAD_ANIM_DUR, 1);
+        // ease-out so it decelerates near 100
+        const eased    = 1 - Math.pow(1 - progress, 2);
+        const display  = Math.floor(eased * 100);
+        loadingPctEl.textContent = display + '%';
+
+        if (progress < 1 || !allLoaded) {
+            requestAnimationFrame(tickLoader);
+        } else {
+            loadingPctEl.textContent = '100%';
+            loadingScreen.classList.add('done');
+        }
+    }
+    requestAnimationFrame(tickLoader);
+
+    /* ── Scene ──────────────────────────────────────────────────────── */
+    const canvas = document.getElementById('scene');
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setClearColor(0xEAE2D0);
+    renderer.setSize(window.innerWidth, window.innerHeight);
+
+    const scene = new THREE.Scene();
+
+    const FRUSTUM_H = 2.0;
+    const FRUSTUM_W = FRUSTUM_H * (window.innerWidth / window.innerHeight);
+    const camera = new THREE.OrthographicCamera(
+        -FRUSTUM_W, FRUSTUM_W, FRUSTUM_H, -FRUSTUM_H, -50, 100
+    );
+    camera.position.set(0, 0, 5);
+    camera.lookAt(0, 0.3, 0);
+
+    const group = new THREE.Group();
+    group.rotation.x = THREE.MathUtils.degToRad(-12);
+    group.rotation.y = THREE.MathUtils.degToRad(30);
+    scene.add(group);
+
+    /* ── Panes ──────────────────────────────────────────────────────── */
+    const PANE_H   = 1.9;
+    const loader   = new THREE.TextureLoader();
+    const maxAniso = renderer.capabilities.getMaxAnisotropy();
+
+    function encodePath(path) {
+        return path.split('/').map(encodeURIComponent).join('/');
+    }
+
+    const THICKNESS = 0.09;
+
+    const mkGlass = () => {
+        const m = new THREE.MeshBasicMaterial({ color: 0xFFFFFF, transparent: true, depthWrite: false, side: THREE.DoubleSide });
+        m.userData.opacityScale = 0.41;
+        return m;
+    };
+    const mkInvis = () => {
+        const m = new THREE.MeshBasicMaterial({ color: 0xFFFFFF, transparent: true, opacity: 0, depthWrite: false });
+        m.userData.opacityScale = 0;
+        return m;
+    };
+
+    const panes = ARTWORKS.map(aw => {
+        const geo = new THREE.BoxGeometry(PANE_H * aw.aspect, PANE_H, THICKNESS);
+
+        const frontMat = new THREE.MeshBasicMaterial({
+            color:       0xD4C4A8,
+            transparent: true,
+            depthWrite:  false,
+        });
+        const mats = [
+            mkGlass(),
+            mkInvis(),
+            mkInvis(),
+            mkInvis(),
+            frontMat,
+            mkInvis(),
+        ];
+
+        const mesh = new THREE.Mesh(geo, mats);
+        mesh.frustumCulled = false;
+        group.add(mesh);
+
+        loader.load(encodePath(aw.img), tex => {
+            tex.anisotropy = maxAniso;
+            tex.colorSpace = THREE.SRGBColorSpace;
+            frontMat.map = tex;
+            frontMat.color.set(0xffffff);
+            frontMat.needsUpdate = true;
+            loadedCount++;
+            if (loadedCount === N) allLoaded = true;
+        });
+
+        return { mesh, mats, frontMat, title: aw.title };
+    });
+
+    /* ── Stack layout ───────────────────────────────────────────────── */
+    const x0 =  0.0,  y0 =  0.0,  z0 =  0.0;
+    const kx = -15.0,  ky = -14.0,  kz = -8.0;
+
+    const _stackDir = new THREE.Vector3(kx, ky, kz).normalize();
+    const hoverDir  = new THREE.Vector3(0, 0, 1)
+        .addScaledVector(_stackDir, -_stackDir.z)
+        .normalize();
+
+    let hoveredIdx           = -1;  // raw raycaster result, updated every frame
+    let candidateIdx         = -1;  // pane being "considered" for activation
+    let candidateFrames      = 0;   // consecutive frames candidateIdx has been hovered
+    let candidateGrace       = 0;   // grace frames remaining during brief raycaster misses
+    let activeIdx            = -1;  // committed active pane
+    let cumulativePathLength = 0;   // total cursor pixel distance traveled (lifetime)
+    let activationPathTotal  = 0;   // cumulativePathLength value when activeIdx was last set
+    const hoverZ = new Float32Array(N);
+
+    const HOVER_Z               = 4.0;
+    const HOVER_ENTER_FRAMES    = 8;    // frames to commit a candidate (~133ms @ 60fps)
+    const HOVER_GRACE           = 3;    // frames a candidate survives brief raycaster misses
+    const DISMISS_PATH_FRACTION = 0.20; // fraction of screen diagonal cursor must travel to dismiss
+    const LERP_IN               = 0.07;
+    const LERP_OUT              = 0.04;
+    const UV_MARGIN             = 0.12;
+
+    function lerp(a, b, t) { return a + (b - a) * t; }
+
+    function updatePanes(t) {
+        for (let i = 0; i < N; i++) {
+            const rawP = (i / N) - t;
+            const p    = ((rawP % 1) + 1) % 1;
+
+            panes[i].mesh.position.set(
+                x0 + kx * p + hoverDir.x * hoverZ[i],
+                y0 + ky * p + hoverDir.y * hoverZ[i],
+                z0 + kz * p + hoverDir.z * hoverZ[i],
+            );
+
+            panes[i].mesh.rotation.x = THREE.MathUtils.degToRad(1);
+            panes[i].mesh.rotation.y = THREE.MathUtils.degToRad(-2) + p * 0.12;
+            panes[i].mesh.rotation.z = p * 0.015;
+
+            panes[i].mesh.scale.setScalar(1.0);
+
+            let op;
+            if (p < 0.02) {
+                op = 0.0;
+            } else if (p < 0.07) {
+                op = lerp(0.0, 1.0, (p - 0.02) / 0.05);
+            } else if (p < 0.60) {
+                op = 1.0;
+            } else if (p < 0.80) {
+                op = lerp(1.0, 0.0, (p - 0.60) / 0.20);
+            } else {
+                op = 0.0;
+            }
+            for (const m of panes[i].mats) m.opacity = op * (m.userData.opacityScale ?? 1);
+
+            panes[i].mesh.renderOrder = Math.round(p * 1000);
+        }
+    }
+
+    /* ── Group translation ──────────────────────────────────────────── */
+    const GRP_Y0 = 2.8;
+    const GRP_Y1 = GRP_Y0;
+    const _pExit       = (GRP_Y0 + FRUSTUM_H) / 12.698;
+    const _avgAspect   = ARTWORKS.reduce((s, a) => s + a.aspect, 0) / N;
+    const _halfWidthPx = (PANE_H * _avgAspect / 2) * Math.cos(THREE.MathUtils.degToRad(40));
+    const GRP_X0 = -FRUSTUM_W + _halfWidthPx + 17.685 * _pExit;
+    const GRP_X1 = GRP_X0;
+
+    /* ── Scroll ─────────────────────────────────────────────────────── */
+    const SCROLL_TRACK = 3000;
+
+    let scrollY  = 0;
+    let speed    = 0;
+    let tTarget  = 0;
+    let tCurrent = 0;
+    let scrollLocked = false;
+
+    function onWheel(e) {
+        if (scrollLocked) return;
+        speed += e.deltaY * 0.1;
+    }
+    window.addEventListener('wheel', onWheel, { passive: true });
+
+    window.addEventListener('wheel', () => {
+        document.getElementById('scrollHint').style.opacity = '0';
+    }, { once: true });
+
+    function lerpWrap(curr, tgt, k) {
+        let d = tgt - curr;
+        if (d >  0.5) d -= 1;
+        if (d < -0.5) d += 1;
+        return curr + d * k;
+    }
+
+    /* ── Hover ──────────────────────────────────────────────────────── */
+    const titleEl   = document.getElementById('art-title');
+    const raycaster = new THREE.Raycaster();
+    const mouse     = new THREE.Vector2();
+
+    let lastClientX = 0, lastClientY = 0;
+
+    window.addEventListener('mousemove', e => {
+        mouse.x =  (e.clientX / window.innerWidth)  * 2 - 1;
+        mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+
+        const dx = e.clientX - lastClientX;
+        const dy = e.clientY - lastClientY;
+        cumulativePathLength += Math.sqrt(dx * dx + dy * dy);
+
+        lastClientX = e.clientX;
+        lastClientY = e.clientY;
+
+        titleEl.style.left = `${e.clientX + 18}px`;
+        titleEl.style.top  = `${e.clientY - 10}px`;
+    });
+
+    /* ── Click-through state machine ────────────────────────────────── */
+    // States: 'idle' → 'rotating' → 'holding' → 'transitioning' → 'detail'
+    let clickState    = 'idle';
+    let clickedIdx    = -1;   // index in panes[] of clicked card
+    let detailArtIdx  = -1;   // index in ARTWORKS[] currently shown in detail
+    let phaseStart    = 0;    // timestamp when current phase began
+
+    // World-space start transform of the detached card
+    const snapWorldPos = new THREE.Vector3();
+    const snapWorldRot = new THREE.Euler();
+
+    // Per-pane start opacity (at click time)
+    const snapOpacity = new Float32Array(N);
+
+    const MOVE_DUR   = 2000; // ms — Phase 1a: slide to center
+    const ROTATE_DUR = 750;  // ms — Phase 1b: rotate to face forward
+    const HOLD_DUR   = 1700; // ms — Phase 2:  hold facing forward
+
+    function easeInOut(t) {
+        return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+    }
+
+    canvas.addEventListener('click', e => {
+        if (clickState !== 'idle') return;
+
+        mouse.x =  (e.clientX / window.innerWidth)  * 2 - 1;
+        mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+        raycaster.setFromCamera(mouse, camera);
+        const visibleMeshes = panes.filter(p => p.frontMat.opacity > 0.01).map(p => p.mesh);
+        const hits = raycaster.intersectObjects(visibleMeshes);
+        if (hits.length === 0) return;
+
+        const idx = panes.findIndex(p => p.mesh === hits[0].object);
+        if (idx === -1) return;
+
+        clickedIdx   = idx;
+        detailArtIdx = idx;
+        scrollLocked = true;
+        speed        = 0;
+        titleEl.style.opacity = '0';
+        hoveredIdx   = -1;
+
+        // Capture other panes' opacities before anything changes
+        for (let i = 0; i < N; i++) {
+            snapOpacity[i] = panes[i].frontMat.opacity;
+        }
+
+        // Detach clicked card from group into scene space — preserves world transform.
+        // From this point its position/rotation are in world (scene) coordinates.
+        scene.attach(panes[clickedIdx].mesh);
+        snapWorldPos.copy(panes[clickedIdx].mesh.position);
+        snapWorldRot.copy(panes[clickedIdx].mesh.rotation);
+
+        phaseStart = performance.now();
+        clickState = 'centering';
+    });
+
+    /* ── Phase animation (called each frame when not idle) ──────────── */
+    function tickClickAnimation(now) {
+        if (clickState === 'centering') {
+            const elapsed = now - phaseStart;
+            const raw = Math.min(elapsed / MOVE_DUR, 1);
+            const t   = easeInOut(raw);
+
+            // Slide to center — rotation held at world-space start
+            const m = panes[clickedIdx].mesh;
+            m.position.x = lerp(snapWorldPos.x, 0, t);
+            m.position.y = lerp(snapWorldPos.y, 0, t);
+            m.position.z = lerp(snapWorldPos.z, 2, t);
+            m.rotation.x = snapWorldRot.x;
+            m.rotation.y = snapWorldRot.y;
+            m.rotation.z = snapWorldRot.z;
+            panes[clickedIdx].frontMat.opacity = 1;
+
+            // Fade out all other panes over the same duration
+            for (let i = 0; i < N; i++) {
+                if (i === clickedIdx) continue;
+                panes[i].frontMat.opacity = lerp(snapOpacity[i], 0, t);
+                for (const m of panes[i].mats) {
+                    if (m !== panes[i].frontMat) m.opacity = lerp(m.opacity, 0, t);
+                }
+            }
+
+            if (raw >= 1) {
+                clickState = 'rotating';
+                phaseStart = now;
+            }
+
+        } else if (clickState === 'rotating') {
+            const elapsed = now - phaseStart;
+            const raw = Math.min(elapsed / ROTATE_DUR, 1);
+            const t   = easeInOut(raw);
+
+            // Rotate to face forward — position locked at center
+            const m = panes[clickedIdx].mesh;
+            m.position.set(0, 0, 2);
+            m.rotation.x = lerp(snapWorldRot.x, 0, t);
+            m.rotation.y = lerp(snapWorldRot.y, 0, t);
+            m.rotation.z = lerp(snapWorldRot.z, 0, t);
+
+            if (raw >= 1) {
+                clickState = 'holding';
+                phaseStart = now;
+            }
+
+        } else if (clickState === 'holding') {
+            const elapsed = now - phaseStart;
+            if (elapsed >= HOLD_DUR) {
+                clickState = 'detail';
+                canvas.style.transition = 'opacity 0.5s ease';
+                canvas.style.opacity = '0';
+                setTimeout(() => showDetail(detailArtIdx), 550);
+            }
+        }
+    }
+
+    /* ── Detail overlay ─────────────────────────────────────────────── */
+    function renderDesc(text, cls) {
+        if (!text) return '';
+        return text.trim().split(/\n\n+/).map(p =>
+            `<p class="${cls}">${p.replace(/\n/g, '<br>')}</p>`
+        ).join('');
+    }
+
+    const overlay   = document.getElementById('detail-overlay');
+    const detailImg = document.getElementById('detail-img');
+    const titleEn   = document.getElementById('detail-title-en');
+    const metaEn    = document.getElementById('detail-meta-en');
+    const descEnEl  = document.getElementById('detail-desc-en');
+    const titleZh   = document.getElementById('detail-title-zh');
+    const metaZh    = document.getElementById('detail-meta-zh');
+    const descZhEl  = document.getElementById('detail-desc-zh');
+    const btnClose  = document.getElementById('detail-close');
+    const btnPrev   = document.getElementById('detail-prev');
+    const btnNext   = document.getElementById('detail-next');
+
+    function showDetail(artIdx) {
+        const aw = ARTWORKS[artIdx];
+        detailImg.src = encodePath(aw.img);
+        detailImg.alt = aw.title;
+        titleEn.textContent = aw.title;
+        metaEn.textContent  = [aw.mediumEn, aw.dimensions, aw.year].filter(Boolean).join('  ·  ');
+        descEnEl.innerHTML  = renderDesc(aw.descriptionEn, 'detail-desc-en');
+        titleZh.textContent = aw.titleZh || aw.title;
+        metaZh.textContent  = [aw.medium, aw.dimensions, aw.year].filter(Boolean).join(' · ');
+        descZhEl.innerHTML  = renderDesc(aw.descriptionZh, 'detail-desc-zh');
+
+        // Force reflow so the transition fires
+        overlay.classList.remove('visible');
+        void overlay.offsetWidth;
+        overlay.classList.add('visible');
+    }
+
+    function navigateDetail(delta) {
+        detailArtIdx = ((detailArtIdx + delta) % N + N) % N;
+        const aw = ARTWORKS[detailArtIdx];
+        detailImg.src = encodePath(aw.img);
+        detailImg.alt = aw.title;
+        titleEn.textContent = aw.title;
+        metaEn.textContent  = [aw.mediumEn, aw.dimensions, aw.year].filter(Boolean).join('  ·  ');
+        descEnEl.innerHTML  = renderDesc(aw.descriptionEn, 'detail-desc-en');
+        titleZh.textContent = aw.titleZh || aw.title;
+        metaZh.textContent  = [aw.medium, aw.dimensions, aw.year].filter(Boolean).join(' · ');
+        descZhEl.innerHTML  = renderDesc(aw.descriptionZh, 'detail-desc-zh');
+        document.getElementById('detail-text').scrollTop = 0;
+    }
+
+    btnPrev.addEventListener('click', () => navigateDetail(-1));
+    btnNext.addEventListener('click', () => navigateDetail(1));
+
+    btnClose.addEventListener('click', () => {
+        // Hide overlay
+        overlay.classList.remove('visible');
+
+        // Re-attach the clicked mesh back into the group and restore opacities
+        group.attach(panes[clickedIdx].mesh);
+        for (let i = 0; i < N; i++) {
+            panes[i].frontMat.opacity = snapOpacity[i];
+            for (const mat of panes[i].mats) {
+                if (mat !== panes[i].frontMat) mat.opacity = mat.userData.opacityScale;
+            }
+        }
+
+        // Fade canvas back in and reset state
+        canvas.style.transition = 'opacity 0.5s ease';
+        canvas.style.opacity = '1';
+        clickState   = 'idle';
+        clickedIdx   = -1;
+        detailArtIdx = -1;
+        scrollLocked = false;
+    });
+
+    /* ── Resize ─────────────────────────────────────────────────────── */
+    window.addEventListener('resize', () => {
+        const w = FRUSTUM_H * (window.innerWidth / window.innerHeight);
+        camera.left   = -w;
+        camera.right  =  w;
+        camera.top    =  FRUSTUM_H;
+        camera.bottom = -FRUSTUM_H;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    /* ── Render loop ─────────────────────────────────────────────────── */
+    function animate(now) {
+        requestAnimationFrame(animate);
+
+        if (clickState !== 'idle' && clickState !== 'detail') {
+            tickClickAnimation(now);
+        } else if (clickState === 'idle') {
+            speed   *= 0.9;
+            scrollY += speed;
+            scrollY  = ((scrollY % SCROLL_TRACK) + SCROLL_TRACK) % SCROLL_TRACK;
+            tTarget  = scrollY / SCROLL_TRACK;
+
+            tCurrent = lerpWrap(tCurrent, tTarget, 0.10);
+            tCurrent = ((tCurrent % 1) + 1) % 1;
+
+            // ── Raycast every frame against current pane geometry ────────
+            // Skipped after deactivation until cursor moves (breaks re-activation feedback loop)
+            let hitActivePaneEdge = false;
+            if (clickState === 'idle') {
+                raycaster.setFromCamera(mouse, camera);
+                const visibleMeshes = panes.filter(p => p.frontMat.opacity > 0.01).map(p => p.mesh);
+                const hits = raycaster.intersectObjects(visibleMeshes);
+                hoveredIdx = -1;
+                let firstPaneObj = null;
+                for (let h = 0; h < hits.length; h++) {
+                    const hit = hits[h];
+                    if (firstPaneObj === null) firstPaneObj = hit.object;
+                    if (hit.object !== firstPaneObj) break;
+                    // Track if cursor is anywhere on the active pane (even its edge zone)
+                    if (activeIdx !== -1 && hit.object === panes[activeIdx].mesh) {
+                        hitActivePaneEdge = true;
+                    }
+                    if (hit.face.materialIndex !== 4) continue;
+                    const uv = hit.uv;
+                    if (uv && uv.x > UV_MARGIN && uv.x < 1 - UV_MARGIN
+                           && uv.y > UV_MARGIN && uv.y < 1 - UV_MARGIN) {
+                        hoveredIdx = panes.findIndex(p => p.mesh === hit.object);
+                    }
+                    break;
+                }
+                // Title follows stable activeIdx
+                if (activeIdx !== -1) {
+                    titleEl.textContent = panes[activeIdx].title;
+                    titleEl.style.opacity = '1';
+                } else {
+                    titleEl.style.opacity = '0';
+                }
+            }
+
+            // ── Hover state machine ──────────────────────────────────────
+            // Step 1: Update candidate with grace period for brief misses
+            if (hoveredIdx !== -1 && hoveredIdx === candidateIdx) {
+                candidateFrames = Math.min(candidateFrames + 1, HOVER_ENTER_FRAMES);
+                candidateGrace = HOVER_GRACE;
+            } else if (hoveredIdx === -1 && candidateIdx !== -1) {
+                if (--candidateGrace <= 0) { candidateIdx = -1; candidateFrames = 0; }
+            } else if (hoveredIdx !== -1 && hoveredIdx !== candidateIdx) {
+                const movedSinceActivation = cumulativePathLength - activationPathTotal;
+                if (activeIdx === -1 || movedSinceActivation > 20) {
+                    candidateIdx = hoveredIdx;
+                    candidateFrames = 1;
+                    candidateGrace = HOVER_GRACE;
+                } else if (candidateIdx !== -1 && candidateIdx !== activeIdx) {
+                    candidateIdx = -1; candidateFrames = 0; candidateGrace = 0;
+                }
+            }
+
+            // Step 2: Promote candidate to active
+            if (candidateIdx !== -1 && candidateFrames >= HOVER_ENTER_FRAMES) {
+                if (activeIdx !== candidateIdx) {
+                    activeIdx = candidateIdx;
+                    activationPathTotal = cumulativePathLength; // fresh reference for new pane
+                }
+            }
+
+            // Step 3: Deactivate — only by 20% screen-diagonal cumulative path off the pane,
+            //         or by a new pane taking over (Step 2 handles that automatically).
+            if (activeIdx !== -1) {
+                if (hoveredIdx === activeIdx) {
+                    // Cursor on interior — reset path reference so wandering restarts from here
+                    activationPathTotal = cumulativePathLength;
+                } else if (!hitActivePaneEdge) {
+                    // Cursor completely off active pane — check cumulative path threshold
+                    const screenDiag = Math.sqrt(window.innerWidth ** 2 + window.innerHeight ** 2);
+                    if (cumulativePathLength - activationPathTotal > DISMISS_PATH_FRACTION * screenDiag) {
+                        activeIdx = -1;
+                        candidateIdx = -1; candidateFrames = 0; candidateGrace = 0;
+                    }
+                }
+                // hitActivePaneEdge && hoveredIdx !== activeIdx:
+                // cursor is on pane's slid edge — stay active, path accumulates
+            }
+
+            // Step 4: Lerp each pane's Z offset — slow symmetric rates eliminate snap-back
+            for (let i = 0; i < N; i++) {
+                const target = (i === activeIdx) ? HOVER_Z : 0;
+                hoverZ[i] += (target - hoverZ[i]) * (target > hoverZ[i] ? LERP_IN : LERP_OUT);
+                if (target === 0 && Math.abs(hoverZ[i]) < 0.001) hoverZ[i] = 0;
+            }
+
+            group.position.x = lerp(GRP_X0, GRP_X1, tCurrent);
+            group.position.y = lerp(GRP_Y0, GRP_Y1, tCurrent);
+
+            updatePanes(tCurrent);
+        }
+
+        renderer.render(scene, camera);
+    }
+
+    updatePanes(0);
+    animate(performance.now());
+    </script>
+
+</body>
+</html>
