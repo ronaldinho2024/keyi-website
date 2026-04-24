@@ -298,18 +298,4 @@ export const ARTWORKS = [
         descriptionEn: `This collection of works was born from the soil and smoky warmth of Jingdezhen in spring.\nThe spark of inspiration hides in those fleeting fragments of light and shadow...\nIt is the flowering tree at the studio door, whose fruit — if it will ever come — remains a quiet mystery;\nIt is the temperature woven between the warm afternoon sun of early spring and the cold night wind that has not yet fully retreated;\nIt is the stillness felt riding an electric scooter through fields ablaze with rapeseed blossoms, watching farmers at their work, as chimney smoke and the evening glow rise together into the sky;\nIt is the joy of shared adventure — climbing the hill to dig for bamboo shoots, gathering curious pieces of driftwood and moss-covered stones along the stream, and waiting together, breathless with delight, for tiny chicks to crack their way into the world.`,
         descriptionZh: `这组作品，诞生于景德镇春天的泥土与烟火气。\n灵光藏在那些细碎的光影里……\n是工作室门口那棵不知能否结出桃子的花树；\n是初春午后的暖阳与夜里尚未散尽的冷风交织出的温度；\n是骑着电瓶车，穿过开满油菜花的田野，看农人劳作，炊烟与晚霞一同升起的平静感受；\n是一起冒险；上山挖笋、捡拾溪边奇特的木头与长满青苔的石头、一起等待小鸡破壳出生的欣喜.`,
     },
-    {
-        title:         'Test',
-        medium:        '瓷板',
-        dimensions:    '',         // TODO: fill in dimensions
-        year:          2025,       // TODO: fill in year
-        aspect:        1.500,
-        img:           'assets/images/test.webp',
-        description:   '',
-        id:            'test',
-        titleZh:       '实验',
-        mediumEn:      'Porcelain',
-        descriptionEn: `This collection of works was born from the soil and smoky warmth of Jingdezhen in spring.\nThe spark of inspiration hides in those fleeting fragments of light and shadow...\nIt is the flowering tree at the studio door, whose fruit — if it will ever come — remains a quiet mystery;\nIt is the temperature woven between the warm afternoon sun of early spring and the cold night wind that has not yet fully retreated;\nIt is the stillness felt riding an electric scooter through fields ablaze with rapeseed blossoms, watching farmers at their work, as chimney smoke and the evening glow rise together into the sky;\nIt is the joy of shared adventure — climbing the hill to dig for bamboo shoots, gathering curious pieces of driftwood and moss-covered stones along the stream, and waiting together, breathless with delight, for tiny chicks to crack their way into the world.`,
-        descriptionZh: `这组作品，诞生于景德镇春天的泥土与烟火气。\n灵光藏在那些细碎的光影里……\n是工作室门口那棵不知能否结出桃子的花树；\n是初春午后的暖阳与夜里尚未散尽的冷风交织出的温度；\n是骑着电瓶车，穿过开满油菜花的田野，看农人劳作，炊烟与晚霞一同升起的平静感受；\n是一起冒险；上山挖笋、捡拾溪边奇特的木头与长满青苔的石头、一起等待小鸡破壳出生的欣喜.`,
-    },
 ];

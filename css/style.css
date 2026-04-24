@@ -34,6 +34,9 @@ a { text-decoration: none; color: inherit; }
     letter-spacing: 0.22em;
     text-transform: uppercase;
     color: var(--ink);
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
 }
 
 .nav-links {
@@ -285,6 +288,8 @@ body.home {
     background: none;
     border: none;
     cursor: pointer;
+    padding: 15px 16px;
+    margin: -15px -16px;
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.4s ease 0.5s, color 0.2s;
@@ -652,8 +657,10 @@ body.contact {
     background: none;
     border: none;
     cursor: pointer;
-    padding: 8px;
-    margin: -8px;
+    padding: 16px 11px;
+    margin: -16px -11px;
+    min-width: 44px;
+    min-height: 44px;
     position: relative;
     z-index: 101;
 }
@@ -762,6 +769,9 @@ body.works-page {
 
 /* ── Mobile nav overlay ──────────────────────────────────────────── */
 @media (max-width: 680px) {
+    /* Artwork title tooltip is cursor-driven — hide it on touch devices */
+    #art-title { display: none; }
+
     .site-nav { padding: 20px 28px; }
 
     .nav-hamburger { display: flex; }
@@ -785,7 +795,7 @@ body.works-page {
         pointer-events: all;
     }
 
-    .nav-links a { font-size: 13px; }
+    .nav-links a { font-size: 13px; padding: 14px 20px; }
 
     .works-item-caption {
         opacity: 1;

@@ -272,16 +272,14 @@
             // frustum is only 1.85 units wide, so cards race off-screen left immediately.
             //
             // Fix: halve kx and kz so the x-sweep matches the viewport width.
-            // Calculated values (rx=-10°, ry=30°, scale=0.80):
-            //   x_world/p ≈ -5.76  →  0.33 × 5.76 ≈ 1.90 ≈ FRUSTUM_W*2  ✓
-            //   y_world/p ≈ -11.98 →  0.33 × 11.98 ≈ 3.95 ≈ FRUSTUM_H*2  ✓
-            //   z_world/p > 0  →  depth ordering preserved  ✓
+            // Calculated values (rx=-10°, ry=30°, scale=0.60):
+            //   Reduced scale from 0.80→0.60 so full card images fit within the portrait viewport.
+            //   grpX nudged left by 0.10 to keep the stack visually centred at the new scale.
             kx = -7.5;  ky = -14.5;  kz = -4.0;
             group.rotation.x = THREE.MathUtils.degToRad(-10);
             group.rotation.y = THREE.MathUtils.degToRad(30);
-            group.scale.setScalar(0.80);
-            // Top card (p≈0.07) lands at the top-right corner of the viewport
-            grpX = FRUSTUM_W + 0.45;   // ≈ 1.37 on a 390-wide phone
+            group.scale.setScalar(0.60);
+            grpX = FRUSTUM_W + 0.35;
             grpY = 2.84;
         } else {
             // Desktop: original layout unchanged
@@ -676,11 +674,28 @@
                 // cursor is on pane's slid edge — stay active, path accumulates
             }
 
-            // Step 4: Lerp each pane's Z offset — slow symmetric rates eliminate snap-back
-            for (let i = 0; i < N; i++) {
-                const target = (i === activeIdx) ? HOVER_Z : 0;
-                hoverZ[i] += (target - hoverZ[i]) * (target > hoverZ[i] ? LERP_IN : LERP_OUT);
-                if (target === 0 && Math.abs(hoverZ[i]) < 0.001) hoverZ[i] = 0;
+            // Step 4: Update per-pane Z offset
+            // • Desktop: lerp toward hoverZ when cursor is over a pane
+            // • Mobile portrait: scroll-driven cosine bell — each card slides out as it
+            //   passes through the visual centre of the stack (p ≈ 0.38), then slides back
+            if (isPortrait()) {
+                const BELL_CENTER = 0.38;
+                const BELL_HALF   = 0.15;
+                for (let i = 0; i < N; i++) {
+                    const rawP = (i / N) - tCurrent;
+                    const p    = ((rawP % 1) + 1) % 1;
+                    const dist = Math.abs(p - BELL_CENTER);
+                    const bell = dist < BELL_HALF
+                        ? 0.5 * (1 + Math.cos(Math.PI * dist / BELL_HALF))
+                        : 0;
+                    hoverZ[i] = HOVER_Z * bell;
+                }
+            } else {
+                for (let i = 0; i < N; i++) {
+                    const target = (i === activeIdx) ? HOVER_Z : 0;
+                    hoverZ[i] += (target - hoverZ[i]) * (target > hoverZ[i] ? LERP_IN : LERP_OUT);
+                    if (target === 0 && Math.abs(hoverZ[i]) < 0.001) hoverZ[i] = 0;
+                }
             }
 
             group.position.x = grpX;
