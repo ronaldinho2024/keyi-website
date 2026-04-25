@@ -139,7 +139,7 @@ body.home {
     background: var(--bg);
     opacity: 0;
     pointer-events: none;
-    transition: opacity 0.6s ease;
+    transition: opacity 0s;
 }
 
 #detail-overlay.visible {
@@ -154,7 +154,7 @@ body.home {
     justify-content: center;
     padding: 80px 48px;
     opacity: 0;
-    transition: opacity 0.6s ease 1s;
+    transition: opacity 0.8s ease 1s;
 }
 
 #detail-overlay.visible #detail-image-wrap {
@@ -178,13 +178,11 @@ body.home {
     overflow-y: auto;
     border-left: 1px solid var(--ink-faint);
     opacity: 0;
-    transform: translateX(24px);
-    transition: opacity 0.5s ease, transform 0.5s ease;
+    transition: opacity 0.8s ease 1s;
 }
 
 #detail-overlay.visible #detail-text {
     opacity: 1;
-    transform: translateX(0);
 }
 
 #detail-title {
