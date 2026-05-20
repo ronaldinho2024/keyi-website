@@ -11,7 +11,7 @@ A static portfolio website for artist Keyi, showcasing artworks, exhibition hist
 ## Structure
 
 - `index.html` — **Pre-landing splash page** (the entry point; visitors must click through to enter the site)
-- `home.html` — Actual home / landing page (reached after clicking through the splash)
+- `homepage.html` — Actual home / landing page (reached after clicking through the splash)
 - `works.html` — Artwork gallery
 - `exhibitions.html` — Exhibition history
 - `contact.html` — Contact information
@@ -23,7 +23,7 @@ A static portfolio website for artist Keyi, showcasing artworks, exhibition hist
 - Each character split into 4 independently animated quadrants (clip-path fragments) plus ghost echo layers
 - Idle sine-wave drift on load; transitions to mouse-tracking on cursor movement
 - "Fan Keyi" in small text anchored below the bottom-right corner of the character block
-- Click anywhere fades out and navigates to `home.html`
+- Click anywhere fades out and navigates to `homepage.html`
 - Uses GSAP 3 (CDN) and Noto Serif SC (Google Fonts)
 
 ## Conventions
