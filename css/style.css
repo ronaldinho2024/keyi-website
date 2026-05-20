@@ -96,6 +96,12 @@ body.home {
     display: block;
     z-index: 0;
     opacity: 1;
+    touch-action: none;
+}
+
+/* Detail overlay open — canvas must not catch pointer/touch events */
+body.is-detail-open #scene {
+    pointer-events: none;
 }
 
 /* ── Artwork title tooltip ───────────────────────────────────────── */
