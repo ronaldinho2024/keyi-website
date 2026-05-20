@@ -9,6 +9,12 @@
     <link rel="preload" href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400&display=swap" as="style">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400&display=swap">
     <style>
+        :root {
+            --ink: #1F1B16;
+            --ink-echo-1: rgba(31, 27, 22, 0.22);
+            --ink-echo-2: rgba(31, 27, 22, 0.12);
+        }
+
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         html, body { width: 100%; height: 100%; }
 
@@ -48,23 +54,17 @@
             will-change: transform;
         }
 
-        /* Fragment colours (each quadrant shows one quarter via clip-path) */
-        .g0 .frag { color: #C41E1E; }
-        .g1 .frag { color: #2E7D3A; }
-        .g2 .frag { color: #C8960A; }
+        /* Fragment colour (each quadrant shows one quarter via clip-path) */
+        .char-group .frag { color: var(--ink); }
 
         .frag.tl { clip-path: inset(0 50% 50% 0); }
         .frag.tr { clip-path: inset(0 0   50% 50%); }
         .frag.bl { clip-path: inset(50% 50% 0 0); }
         .frag.br { clip-path: inset(50% 0   0 50%); }
 
-        /* Echo layers — sibling colours bleed through */
-        .g0 .e1 { color: #2E7D3A; opacity: 0.32; }
-        .g0 .e2 { color: #C8960A; opacity: 0.24; }
-        .g1 .e1 { color: #C8960A; opacity: 0.32; }
-        .g1 .e2 { color: #C41E1E; opacity: 0.24; }
-        .g2 .e1 { color: #C41E1E; opacity: 0.32; }
-        .g2 .e2 { color: #2E7D3A; opacity: 0.24; }
+        /* Echo layers — translucent charcoal ghosts behind the fragments */
+        .char-group .e1 { color: var(--ink-echo-1); }
+        .char-group .e2 { color: var(--ink-echo-2); }
 
         /* "Fan Keyi" anchored to the bottom-right corner of the chars block */
         .byline {
