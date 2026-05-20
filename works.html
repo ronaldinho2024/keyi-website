@@ -7,6 +7,8 @@
     <link rel="preload" as="image" href="assets/images/《All things on earth1》 炭笔、矿物颜料 114×78cm 2022.webp" fetchpriority="high">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400&family=EB+Garamond:ital,wght@0,400;0,500;1,400&display=swap" as="style">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400&family=EB+Garamond:ital,wght@0,400;0,500;1,400&display=swap">
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body class="works-page">
@@ -77,8 +79,10 @@
 
         // ── Render gallery ───────────────────────────────────────────
         gallery.innerHTML = ARTWORKS.map(aw => `
-            <a class="works-item" href="work.html?id=${aw.id}">
-                <img src="${aw.img}" alt="${aw.title}" loading="lazy">
+            <a class="works-item" href="works.html?id=${aw.id}">
+                <img src="${aw.img}" alt="${aw.title}"
+                     loading="lazy" decoding="async"
+                     width="1000" height="${Math.round(1000 / aw.aspect)}">
                 <div class="works-item-caption">
                     <span class="works-item-title">${aw.title}</span>
                     ${aw.year ? `<span class="works-item-year">${aw.year}</span>` : ''}

@@ -6,6 +6,8 @@
     <title>Fan Keyi</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400&family=EB+Garamond:ital,wght@0,400;0,500;1,400&display=swap" as="style">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400&family=EB+Garamond:ital,wght@0,400;0,500;1,400&display=swap">
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body class="home" style="overflow:hidden;">
@@ -74,31 +76,41 @@
 
     const N = ARTWORKS.length;
 
-    /* ── Loading screen ─────────────────────────────────────────────── */
-    const loadingScreen = document.getElementById('loading-screen');
-    const loadingPctEl  = document.getElementById('loading-pct');
-    let   loadedCount   = 0;
-    let   allLoaded     = false;
+    /* ── Loading screen — real progress via THREE.LoadingManager ─────── */
+    const loadingPctEl = document.getElementById('loading-pct');
+    const loadStart    = performance.now();
+    const MIN_HOLD     = 600; // ms — min hold so a fast load doesn't flash
 
-    const LOAD_ANIM_DUR = 4000; // ms — minimum count-up duration
-    const loadStart     = performance.now();
+    const manager = new THREE.LoadingManager();
 
-    function tickLoader(now) {
-        const elapsed  = now - loadStart;
-        const progress = Math.min(elapsed / LOAD_ANIM_DUR, 1);
-        // ease-out so it decelerates near 100
-        const eased    = 1 - Math.pow(1 - progress, 2);
-        const display  = Math.floor(eased * 100);
-        loadingPctEl.textContent = display + '%';
+    let displayPct = 0;     // eased value shown in the counter
+    let targetPct  = 0;     // real load fraction reported by the manager
+    let revealed   = false;
 
-        if (progress < 1 || !allLoaded) {
-            requestAnimationFrame(tickLoader);
-        } else {
-            loadingPctEl.textContent = '100%';
-            loadingScreen.classList.add('done');
-        }
+    manager.onProgress = (url, loaded, total) => {
+        targetPct = total > 0 ? loaded / total : 0;
+    };
+
+    // Ease the shown percentage toward real progress for a smooth count-up
+    function tickLoader() {
+        displayPct += (targetPct - displayPct) * 0.12;
+        loadingPctEl.textContent = Math.round(displayPct * 100) + '%';
+        if (!revealed) requestAnimationFrame(tickLoader);
     }
     requestAnimationFrame(tickLoader);
+
+    const texturesLoaded = new Promise(resolve => { manager.onLoad = resolve; });
+
+    // Reveal once fonts AND textures are ready — held a minimum 600ms
+    Promise.all([document.fonts.ready, texturesLoaded]).then(() => {
+        const wait = Math.max(MIN_HOLD - (performance.now() - loadStart), 0);
+        setTimeout(() => {
+            targetPct = displayPct = 1;
+            loadingPctEl.textContent = '100%';
+            revealed = true;
+            document.body.classList.add('is-loaded');
+        }, wait);
+    });
 
     /* ── Scene ──────────────────────────────────────────────────────── */
     const canvas = document.getElementById('scene');
@@ -121,7 +133,7 @@
 
     /* ── Panes ──────────────────────────────────────────────────────── */
     const PANE_H   = 1.9;
-    const loader   = new THREE.TextureLoader();
+    const loader   = new THREE.TextureLoader(manager);
     const maxAniso = renderer.capabilities.getMaxAnisotropy();
 
     function encodePath(path) {
@@ -168,8 +180,6 @@
             frontMat.map = tex;
             frontMat.color.set(0xffffff);
             frontMat.needsUpdate = true;
-            loadedCount++;
-            if (loadedCount === N) allLoaded = true;
         });
 
         return { mesh, mats, frontMat, title: aw.title };
