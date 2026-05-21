@@ -121,14 +121,15 @@
 
         function openOverlay(idx) {
             history.pushState({ id: ARTWORKS[idx].id }, '', `?id=${ARTWORKS[idx].id}`);
-            populate(idx).then(() => {
-                overlay.classList.add('visible');
-                document.body.style.overflow = 'hidden';
-            });
+            // Cover the gallery instantly; image + text reveal once decoded.
+            overlay.classList.add('visible');
+            document.body.style.overflow = 'hidden';
+            populate(idx).then(() => overlay.classList.add('detail-ready'));
         }
 
         function closeOverlay() {
             overlay.classList.remove('visible');
+            overlay.classList.remove('detail-ready');
             document.body.style.overflow = '';
             history.pushState(null, '', 'works.html');
             currentIdx = -1;
@@ -203,14 +204,14 @@
                     if (overlay.classList.contains('visible')) {
                         populate(idx);
                     } else {
-                        populate(idx).then(() => {
-                            overlay.classList.add('visible');
-                            document.body.style.overflow = 'hidden';
-                        });
+                        overlay.classList.add('visible');
+                        document.body.style.overflow = 'hidden';
+                        populate(idx).then(() => overlay.classList.add('detail-ready'));
                     }
                 }
             } else {
                 overlay.classList.remove('visible');
+                overlay.classList.remove('detail-ready');
                 document.body.style.overflow = '';
                 currentIdx = -1;
             }
@@ -221,10 +222,9 @@
         if (initId) {
             const idx = ARTWORKS.findIndex(a => a.id === initId);
             if (idx !== -1) {
-                populate(idx).then(() => {
-                    overlay.classList.add('visible');
-                    document.body.style.overflow = 'hidden';
-                });
+                overlay.classList.add('visible');
+                document.body.style.overflow = 'hidden';
+                populate(idx).then(() => overlay.classList.add('detail-ready'));
             }
         }
     </script>

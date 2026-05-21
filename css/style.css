@@ -161,7 +161,7 @@ body.is-detail-open #scene {
     transition: opacity 0.8s ease 1s;
 }
 
-#detail-overlay.visible #detail-image-wrap {
+#detail-overlay.detail-ready #detail-image-wrap {
     opacity: 1;
 }
 
@@ -185,7 +185,7 @@ body.is-detail-open #scene {
     transition: opacity 0.8s ease 1s;
 }
 
-#detail-overlay.visible #detail-text {
+#detail-overlay.detail-ready #detail-text {
     opacity: 1;
 }
 
