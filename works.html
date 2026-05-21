@@ -94,26 +94,37 @@
         `).join('');
 
         // ── Overlay helpers ──────────────────────────────────────────
+        // Preload + decode the image first, then apply the image and all text
+        // together — so the text never appears before the picture.
+        let populateToken = 0;
         function populate(idx) {
             const aw = ARTWORKS[idx];
-            detailImg.src = aw.img;
-            detailImg.alt = aw.title;
-            titleEn.textContent = aw.title;
-            metaEn.textContent = [aw.mediumEn, aw.dimensions, aw.year].filter(Boolean).join('  ·  ');
-            descEnEl.innerHTML = renderDesc(aw.descriptionEn, 'detail-desc-en');
-            titleZh.textContent = aw.titleZh || aw.title;
-            metaZh.textContent = [aw.medium, aw.dimensions, aw.year].filter(Boolean).join(' · ');
-            descZhEl.innerHTML = renderDesc(aw.descriptionZh, 'detail-desc-zh');
+            currentIdx = idx;
             prevBtn.style.visibility = idx > 0                    ? 'visible' : 'hidden';
             nextBtn.style.visibility = idx < ARTWORKS.length - 1  ? 'visible' : 'hidden';
-            currentIdx = idx;
+
+            const token = ++populateToken;
+            const pre = new Image();
+            pre.src = aw.img;
+            return pre.decode().catch(() => {}).then(() => {
+                if (token !== populateToken) return;   // a newer populate() superseded this
+                detailImg.src = aw.img;
+                detailImg.alt = aw.title;
+                titleEn.textContent = aw.title;
+                metaEn.textContent = [aw.mediumEn, aw.dimensions, aw.year].filter(Boolean).join('  ·  ');
+                descEnEl.innerHTML = renderDesc(aw.descriptionEn, 'detail-desc-en');
+                titleZh.textContent = aw.titleZh || aw.title;
+                metaZh.textContent = [aw.medium, aw.dimensions, aw.year].filter(Boolean).join(' · ');
+                descZhEl.innerHTML = renderDesc(aw.descriptionZh, 'detail-desc-zh');
+            });
         }
 
         function openOverlay(idx) {
-            populate(idx);
-            overlay.classList.add('visible');
-            document.body.style.overflow = 'hidden';
             history.pushState({ id: ARTWORKS[idx].id }, '', `?id=${ARTWORKS[idx].id}`);
+            populate(idx).then(() => {
+                overlay.classList.add('visible');
+                document.body.style.overflow = 'hidden';
+            });
         }
 
         function closeOverlay() {
@@ -192,9 +203,10 @@
                     if (overlay.classList.contains('visible')) {
                         populate(idx);
                     } else {
-                        populate(idx);
-                        overlay.classList.add('visible');
-                        document.body.style.overflow = 'hidden';
+                        populate(idx).then(() => {
+                            overlay.classList.add('visible');
+                            document.body.style.overflow = 'hidden';
+                        });
                     }
                 }
             } else {
@@ -209,9 +221,10 @@
         if (initId) {
             const idx = ARTWORKS.findIndex(a => a.id === initId);
             if (idx !== -1) {
-                populate(idx);
-                overlay.classList.add('visible');
-                document.body.style.overflow = 'hidden';
+                populate(idx).then(() => {
+                    overlay.classList.add('visible');
+                    document.body.style.overflow = 'hidden';
+                });
             }
         }
     </script>

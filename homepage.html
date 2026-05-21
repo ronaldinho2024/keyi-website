@@ -36,33 +36,6 @@
         <span id="loading-pct">0%</span>
     </div>
 
-    <!-- Detail overlay (same-page) -->
-    <div id="detail-overlay">
-        <div id="detail-image-wrap">
-            <img id="detail-img" src="" alt="">
-        </div>
-        <div id="detail-text">
-            <div id="detail-section-en">
-                <h1 id="detail-title-en"></h1>
-                <p id="detail-meta-en"></p>
-                <div id="detail-desc-en"></div>
-            </div>
-            <div id="detail-section-zh">
-                <h2 id="detail-title-zh"></h2>
-                <p id="detail-meta-zh"></p>
-                <div id="detail-desc-zh"></div>
-            </div>
-        </div>
-        <button id="detail-close">← Works</button>
-        <button id="detail-prev" aria-label="Previous artwork">&#8592;</button>
-        <button id="detail-next" aria-label="Next artwork">&#8594;</button>
-    </div>
-
-    <!-- Lightbox -->
-    <div id="lightbox">
-        <img id="lightbox-img" src="" alt="">
-    </div>
-
     <script type="importmap">
     {"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js"}}
     </script>
@@ -408,7 +381,7 @@
     });
 
     /* ── Click-through state machine ────────────────────────────────── */
-    // States: 'idle' → 'rotating' → 'holding' → 'transitioning' → 'detail'
+    // States: 'idle' → 'centering' → 'rotating' → 'holding' → 'transitioning' (then nav to works.html)
     let clickState    = 'idle';
     let clickedIdx    = -1;   // index in panes[] of clicked card
     let detailArtIdx  = -1;   // index in ARTWORKS[] currently shown in detail
@@ -516,111 +489,16 @@
         } else if (clickState === 'holding') {
             const elapsed = now - phaseStart;
             if (elapsed >= HOLD_DUR) {
-                clickState = 'detail';
+                clickState = 'transitioning';
                 canvas.style.transition = 'opacity 0.5s ease';
                 canvas.style.opacity = '0';
-                setTimeout(() => showDetail(detailArtIdx), 550);
+                // Hand off to the canonical detail URL on works.html
+                setTimeout(() => {
+                    location.href = 'works.html?id=' + ARTWORKS[detailArtIdx].id;
+                }, 550);
             }
         }
     }
-
-    /* ── Detail overlay ─────────────────────────────────────────────── */
-    function renderDesc(text, cls) {
-        if (!text) return '';
-        return text.trim().split(/\n\n+/).map(p =>
-            `<p class="${cls}">${p.replace(/\n/g, '<br>')}</p>`
-        ).join('');
-    }
-
-    const overlay   = document.getElementById('detail-overlay');
-    const detailImg = document.getElementById('detail-img');
-    const titleEn   = document.getElementById('detail-title-en');
-    const metaEn    = document.getElementById('detail-meta-en');
-    const descEnEl  = document.getElementById('detail-desc-en');
-    const titleZh   = document.getElementById('detail-title-zh');
-    const metaZh    = document.getElementById('detail-meta-zh');
-    const descZhEl  = document.getElementById('detail-desc-zh');
-    const btnClose  = document.getElementById('detail-close');
-    const btnPrev   = document.getElementById('detail-prev');
-    const btnNext   = document.getElementById('detail-next');
-
-    function showDetail(artIdx) {
-        const aw = ARTWORKS[artIdx];
-        detailImg.src = encodePath(aw.img);
-        detailImg.alt = aw.title;
-        titleEn.textContent = aw.title;
-        metaEn.textContent  = [aw.mediumEn, aw.dimensions, aw.year].filter(Boolean).join('  ·  ');
-        descEnEl.innerHTML  = renderDesc(aw.descriptionEn, 'detail-desc-en');
-        titleZh.textContent = aw.titleZh || aw.title;
-        metaZh.textContent  = [aw.medium, aw.dimensions, aw.year].filter(Boolean).join(' · ');
-        descZhEl.innerHTML  = renderDesc(aw.descriptionZh, 'detail-desc-zh');
-
-        // Force reflow so the transition fires
-        overlay.classList.remove('visible');
-        void overlay.offsetWidth;
-        overlay.classList.add('visible');
-        document.body.classList.add('is-detail-open');
-    }
-
-    function navigateDetail(delta) {
-        detailArtIdx = ((detailArtIdx + delta) % N + N) % N;
-        const aw = ARTWORKS[detailArtIdx];
-        detailImg.src = encodePath(aw.img);
-        detailImg.alt = aw.title;
-        titleEn.textContent = aw.title;
-        metaEn.textContent  = [aw.mediumEn, aw.dimensions, aw.year].filter(Boolean).join('  ·  ');
-        descEnEl.innerHTML  = renderDesc(aw.descriptionEn, 'detail-desc-en');
-        titleZh.textContent = aw.titleZh || aw.title;
-        metaZh.textContent  = [aw.medium, aw.dimensions, aw.year].filter(Boolean).join(' · ');
-        descZhEl.innerHTML  = renderDesc(aw.descriptionZh, 'detail-desc-zh');
-        document.getElementById('detail-text').scrollTop = 0;
-    }
-
-    btnPrev.addEventListener('click', () => navigateDetail(-1));
-    btnNext.addEventListener('click', () => navigateDetail(1));
-
-    /* ── Lightbox ───────────────────────────────────────────────── */
-    const lightbox    = document.getElementById('lightbox');
-    const lightboxImg = document.getElementById('lightbox-img');
-
-    detailImg.addEventListener('click', () => {
-        lightboxImg.src = detailImg.src;
-        lightboxImg.alt = detailImg.alt;
-        lightbox.classList.add('visible');
-    });
-
-    lightbox.addEventListener('click', e => {
-        if (e.target !== lightboxImg) lightbox.classList.remove('visible');
-    });
-
-    document.addEventListener('keydown', e => {
-        if (e.key === 'Escape' && lightbox.classList.contains('visible')) {
-            lightbox.classList.remove('visible');
-        }
-    });
-
-    btnClose.addEventListener('click', () => {
-        // Hide overlay
-        overlay.classList.remove('visible');
-        document.body.classList.remove('is-detail-open');
-
-        // Re-attach the clicked mesh back into the group and restore opacities
-        group.attach(panes[clickedIdx].mesh);
-        for (let i = 0; i < N; i++) {
-            panes[i].frontMat.opacity = snapOpacity[i];
-            for (const mat of panes[i].mats) {
-                if (mat !== panes[i].frontMat) mat.opacity = mat.userData.opacityScale;
-            }
-        }
-
-        // Fade canvas back in and reset state
-        canvas.style.transition = 'opacity 0.5s ease';
-        canvas.style.opacity = '1';
-        clickState   = 'idle';
-        clickedIdx   = -1;
-        detailArtIdx = -1;
-        scrollLocked = false;
-    });
 
     /* ── Resize ─────────────────────────────────────────────────────── */
     window.addEventListener('resize', updateLayout);
@@ -629,7 +507,7 @@
     function animate(now) {
         requestAnimationFrame(animate);
 
-        if (clickState !== 'idle' && clickState !== 'detail') {
+        if (clickState !== 'idle' && clickState !== 'transitioning') {
             tickClickAnimation(now);
         } else if (clickState === 'idle') {
             speed   *= 0.82; // was: 0.9
